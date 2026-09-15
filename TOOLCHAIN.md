@@ -304,3 +304,52 @@ ADB="/mnt/c/Users/FragransTea/platform-tools/adb.exe"
 "$ADB" devices -l
 "$ADB" install -r /mnt/c/tmp/app-debug.apk
 ```
+
+---
+
+## 十二、GitHub 推送与代理（每个新 DSH 会话都能直接推送）
+
+### 事实基础（全部实测）
+- GitHub 从这台 WSL **可以访问**，但前提是**你的 Windows 代理处于开启状态**。
+- WSL 是 **NAT 模式**：Windows 的 `127.0.0.1:10090` 在 WSL 里**看不到**；NAT 模式下**默认网关就是 Windows 主机**（当前 `192.168.192.1`）。
+- 代理端口 **10090 是 mixed 端口**：HTTP 与 SOCKS5 都可直接用（实测两者访问 `api.github.com` 均返回 200）。
+- **直连不通、走代理才通**：`raw.githubusercontent.com`、`objects.githubusercontent.com`（GitHub 的 release 资源域名 —— 这也正是当初 Gradle 发行版下载失败的原因）。
+
+### 已做好的持久化配置
+
+| 用途 | 机制 | 位置 |
+|---|---|---|
+| `git push` / `git pull`（SSH） | `ProxyCommand` 调用 `ssh-proxy-github` | `~/.ssh/config` |
+| 远端地址 | `git@github.com:guiyuqi/ScreenSolve.git` | 仓库 `.git/config` |
+| 按需的 HTTPS 代理 | `github-proxy` 命令 | `~/.local/bin/github-proxy` |
+
+**关键设计：网关 IP 绝不写死。** WSL 重启后 NAT 网段可能变化，所以两个脚本都在**运行时动态探测**：先试 `127.0.0.1`（将来若切到 WSL 镜像网络模式就命中它），再试默认网关，都不可用则**回退直连**——避免"配了代理反而把 SSH 弄坏"。探测一律带 1 秒超时，否则代理没开、包被防火墙静默丢弃时 SSH 会卡两分钟。
+
+验证方式（实测输出）：
+```
+debug1: Executing proxy command: exec /home/fragranstea/.local/bin/ssh-proxy-github github.com 22
+Authenticated to github.com (via proxy) using "publickey".
+Hi guiyuqi! You've successfully authenticated, but GitHub does not provide shell access.
+```
+
+### agent 该怎么做
+**推送代码：什么都不用做**，`git push` 自动走代理：
+```bash
+cd ~/dsh-workspace/ScreenSolve && git push
+```
+
+**需要用 HTTPS 访问 GitHub 时**（curl 拉 release 资源、`git clone https://...` 等），用 `github-proxy` 现取地址：
+```bash
+curl -x "$(github-proxy)" -L -o file.zip https://github.com/owner/repo/releases/download/v1/file.zip
+git -c http.proxy="$(github-proxy)" clone https://github.com/owner/repo.git
+```
+
+⚠️ **不要把代理设成全局环境变量**。全局 `http_proxy` 会把 Maven / `dl.google.com` 一起绕进代理，而它们直连有 5～9 MB/s，绕代理反而慢、且代理一关就全断。只对需要的命令按需指定。
+
+### 故障排查
+| 现象 | 处理 |
+|---|---|
+| `git push` 卡住 / `Connection refused` | Windows 代理没开。开启后重试，脚本会自动探测到 |
+| 代理开着却探测不到 | 代理客户端里打开**"允许局域网连接"**；或改用 WSL 镜像网络模式（`.wslconfig` 加 `networkingMode=mirrored` 后 `wsl --shutdown`——注意会重启 WSL、当前会话会断） |
+| 换了代理端口 | `export GITHUB_PROXY_PORT=<新端口>`；要永久改就改 `~/.ssh/config` 与两个脚本里的默认值 |
+| SSH 认证失败 | 确认公钥仍在 https://github.com/settings/keys （本机公钥：`~/.ssh/id_ed25519.pub`） |

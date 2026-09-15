@@ -30,12 +30,28 @@
     <string name="main_section_switch">悬浮球开关</string>
     <string name="main_btn_start">启动悬浮球</string>
     <string name="main_btn_stop">停止悬浮球</string>
+
+    <!-- M2：截屏会话 -->
+    <string name="main_section_session">截屏会话</string>
+    <string name="main_status_session_on">截屏会话：进行中（点悬浮球直接抓帧，不会再弹授权框）</string>
+    <string name="main_status_session_off">截屏会话：未建立（首次点悬浮球时会请求授权）</string>
+    <string name="main_btn_release_session">释放截屏会话</string>
+
     <string name="main_section_note">当前进度</string>
-    <string name="main_m1_note">M1 已实现：悬浮球的显示、拖动、松手吸边、点击响应、位置记忆，以及悬浮窗/通知权限引导。\n\n截图、区域选择、DeepSeek 识题将在 M2 / M3 接入，现在点击悬浮球只会弹出提示。</string>
+    <string name="main_m1_note">M1 已完成：悬浮球的显示、拖动、松手吸边、点击响应、位置记忆，以及悬浮窗/通知权限引导。\n\nM2 已完成：一次授权后的常驻截屏会话、点悬浮球抓取当前帧、抓帧结果预览（用来确认画面新鲜、且没有把自己截进去）。\n\nM3 将把抓到的画面裁成选区并调用 DeepSeek 识题。</string>
 
     <!-- 提示 -->
     <string name="toast_need_overlay_permission">请先授予悬浮窗权限</string>
     <string name="toast_bubble_started">悬浮球已开启</string>
     <string name="toast_bubble_stopped">悬浮球已关闭</string>
-    <string name="toast_m1_placeholder">截图搜题将在 M2 接入\n（M1 仅验证悬浮窗与权限链路）</string>
+    <string name="toast_m1_placeholder">截图搜题将在 M3 接入\n（M2 只验证抓帧链路）</string>
+
+    <!-- M2：截屏会话与抓帧预览 -->
+    <string name="toast_capture_denied">未获得截屏授权，无法抓帧</string>
+    <string name="toast_session_ready">截屏会话已就绪，再点悬浮球即可抓帧</string>
+    <string name="toast_session_lost">截屏会话已被系统结束，需要重新授权</string>
+    <string name="toast_capture_failed">抓帧失败，请重试</string>
+    <string name="preview_info_fresh">第 %1$d 帧 · %2$d×%3$d · 新帧（已先隐藏悬浮球）</string>
+    <string name="preview_info_stale">第 %1$d 帧 · %2$d×%3$d · 未等到新帧，画面可能偏旧</string>
+    <string name="preview_close">关闭预览</string>
 </resources>

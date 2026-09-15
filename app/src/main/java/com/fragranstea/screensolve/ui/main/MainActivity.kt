@@ -24,6 +24,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var grantOverlayButton: Button
     private lateinit var grantNotificationButton: Button
     private lateinit var toggleButton: Button
+    private lateinit var sessionStatus: TextView
+    private lateinit var releaseSessionButton: Button
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { refreshUi() }
@@ -37,6 +39,8 @@ class MainActivity : AppCompatActivity() {
         grantOverlayButton = findViewById(R.id.btnGrantOverlay)
         grantNotificationButton = findViewById(R.id.btnGrantNotif)
         toggleButton = findViewById(R.id.btnToggle)
+        sessionStatus = findViewById(R.id.tvSessionStatus)
+        releaseSessionButton = findViewById(R.id.btnReleaseSession)
 
         grantOverlayButton.setOnClickListener {
             // 悬浮窗权限是特殊权限，只能跳系统设置页
@@ -50,6 +54,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         toggleButton.setOnClickListener { toggleBubble() }
+
+        releaseSessionButton.setOnClickListener {
+            // 服务没在跑时不要调 releaseSession，否则 startService 会把服务拉起来（反而弹出悬浮球）
+            if (OverlayService.isRunning) {
+                OverlayService.releaseSession(this)
+                releaseSessionButton.postDelayed({ refreshUi() }, 300)
+            }
+        }
     }
 
     override fun onResume() {
@@ -105,5 +117,14 @@ class MainActivity : AppCompatActivity() {
         toggleButton.setText(
             if (OverlayService.isRunning) R.string.main_btn_stop else R.string.main_btn_start,
         )
+
+        val sessionActive = OverlayService.isRunning && OverlayService.isSessionActive
+        sessionStatus.text = getString(
+            if (sessionActive) R.string.main_status_session_on else R.string.main_status_session_off,
+        )
+        sessionStatus.setTextColor(
+            ContextCompat.getColor(this, if (sessionActive) R.color.status_ok else R.color.status_warn),
+        )
+        releaseSessionButton.visibility = if (sessionActive) View.VISIBLE else View.GONE
     }
 }

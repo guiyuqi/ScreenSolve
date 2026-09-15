@@ -6,12 +6,13 @@
 
     <!--
       常驻前台服务。
-      M1 只做悬浮窗，用 specialUse 类型；
-      M2 接入截图时会追加 mediaProjection 类型与 FOREGROUND_SERVICE_MEDIA_PROJECTION 权限，
-      并在真正开始截屏时用 FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION 调用 startForeground。
+      类型是 specialUse|mediaProjection：平时只用 specialUse；
+      建立投屏会话时按 Android 14+ 的要求先让前台服务带上 mediaProjection 类型，
+      再调用 getMediaProjection（顺序写反会直接抛 SecurityException）。
     -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
     <!-- Android 13+ 前台服务通知需要运行时授权 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -38,11 +39,24 @@
         <service
             android:name=".ui.overlay.OverlayService"
             android:exported="false"
-            android:foregroundServiceType="specialUse">
+            android:foregroundServiceType="specialUse|mediaProjection">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="floating_overlay_bubble_for_screen_question_solving" />
         </service>
+
+        <!--
+          无界面中转 Activity：MediaProjection 的系统授权框只能由 Activity 发起，
+          而悬浮球跑在 Service 里。它只负责拉起授权框并把结果回传给服务，
+          所以是全透明、不进最近任务、不留历史。
+        -->
+        <activity
+            android:name=".ui.consent.ConsentActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
     </application>
 

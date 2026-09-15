@@ -57,6 +57,19 @@
 
         <TextView
             style="@style/SectionTitle"
+            android:text="@string/main_section_session" />
+
+        <TextView
+            android:id="@+id/tvSessionStatus"
+            style="@style/StatusText" />
+
+        <Button
+            android:id="@+id/btnReleaseSession"
+            style="@style/ActionButton"
+            android:text="@string/main_btn_release_session" />
+
+        <TextView
+            style="@style/SectionTitle"
             android:text="@string/main_section_note" />
 
         <TextView

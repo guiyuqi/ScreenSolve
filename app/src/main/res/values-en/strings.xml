@@ -10,7 +10,7 @@
     <string name="notif_text">Floating button is on. Tap it to solve a question.</string>
     <string name="notif_action_stop">Stop</string>
 
-    <string name="main_subtitle">Screenshot question solver · M1 build</string>
+    <string name="main_subtitle">Screenshot question solver · M2 build</string>
     <string name="main_section_permission">Permissions</string>
     <string name="main_status_overlay_on">Display over other apps: granted</string>
     <string name="main_status_overlay_off">Display over other apps: not granted (required to show the button)</string>
@@ -22,11 +22,25 @@
     <string name="main_section_switch">Floating button</string>
     <string name="main_btn_start">Start floating button</string>
     <string name="main_btn_stop">Stop floating button</string>
+
+    <string name="main_section_session">Capture session</string>
+    <string name="main_status_session_on">Capture session: active (tapping the button grabs a frame without asking again)</string>
+    <string name="main_status_session_off">Capture session: not established (consent is requested on the first tap)</string>
+    <string name="main_btn_release_session">Release capture session</string>
+
     <string name="main_section_note">Current progress</string>
-    <string name="main_m1_note">M1 provides: showing the floating button, dragging it, edge snapping on release, tap handling, position memory, and the overlay / notification permission flow.\n\nScreen capture, region selection and the DeepSeek request come in M2 / M3. For now tapping the button only shows a notice.</string>
+    <string name="main_m1_note">M1 provides: showing the floating button, dragging it, edge snapping on release, tap handling, position memory, and the overlay / notification permission flow.\n\nM2 provides: a long-lived capture session after a single consent, grabbing the current frame on tap, and a preview of the grabbed frame (to confirm it is fresh and does not contain the button itself).\n\nM3 will crop the grabbed frame to the selected region and call DeepSeek.</string>
 
     <string name="toast_need_overlay_permission">Please grant the overlay permission first</string>
     <string name="toast_bubble_started">Floating button started</string>
     <string name="toast_bubble_stopped">Floating button stopped</string>
-    <string name="toast_m1_placeholder">Screen capture comes in M2\n(M1 only verifies the overlay and permissions)</string>
+    <string name="toast_m1_placeholder">Screen capture comes in M3\n(M2 only verifies the frame grabbing)</string>
+
+    <string name="toast_capture_denied">Screen capture was not granted, cannot grab a frame</string>
+    <string name="toast_session_ready">Capture session ready. Tap the floating button to grab a frame.</string>
+    <string name="toast_session_lost">The system ended the capture session. Consent is needed again.</string>
+    <string name="toast_capture_failed">Failed to grab a frame, please retry</string>
+    <string name="preview_info_fresh">Frame %1$d · %2$d×%3$d · fresh (button hidden first)</string>
+    <string name="preview_info_stale">Frame %1$d · %2$d×%3$d · no new frame arrived, image may be stale</string>
+    <string name="preview_close">Close preview</string>
 </resources>

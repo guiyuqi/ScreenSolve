@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  默认语言资源 = 中文。
+  英文在 values-en/strings.xml：设备语言为 en 时自动使用；
+  设备语言为 zh 或其它未支持语言时，回落到本文件（中文）。
+-->
+<resources>
+    <string name="app_name">搜题助手</string>
+
+    <!-- 悬浮球 -->
+    <string name="bubble_content_desc">悬浮球：点击开始搜题</string>
+
+    <!-- 前台服务通知 -->
+    <string name="notif_channel_name">悬浮窗常驻</string>
+    <string name="notif_channel_desc">保持悬浮球显示在其它应用上层</string>
+    <string name="notif_title">搜题助手正在运行</string>
+    <string name="notif_text">悬浮球已开启，点击悬浮球开始搜题</string>
+    <string name="notif_action_stop">关闭</string>
+
+    <!-- 主界面 -->
+    <string name="main_subtitle">悬浮窗截图搜题 · M1 版本</string>
+    <string name="main_section_permission">权限状态</string>
+    <string name="main_status_overlay_on">悬浮窗权限：已授权</string>
+    <string name="main_status_overlay_off">悬浮窗权限：未授权（必须授权才能显示悬浮球）</string>
+    <string name="main_status_notif_on">通知权限：已授权</string>
+    <string name="main_status_notif_off">通知权限：未授权（前台服务通知将不可见）</string>
+    <string name="main_status_notif_na">通知权限：当前系统版本无需申请</string>
+    <string name="main_btn_grant_overlay">授予悬浮窗权限</string>
+    <string name="main_btn_grant_notif">授予通知权限</string>
+    <string name="main_section_switch">悬浮球开关</string>
+    <string name="main_btn_start">启动悬浮球</string>
+    <string name="main_btn_stop">停止悬浮球</string>
+    <string name="main_section_note">当前进度</string>
+    <string name="main_m1_note">M1 已实现：悬浮球的显示、拖动、松手吸边、点击响应、位置记忆，以及悬浮窗/通知权限引导。\n\n截图、区域选择、DeepSeek 识题将在 M2 / M3 接入，现在点击悬浮球只会弹出提示。</string>
+
+    <!-- 提示 -->
+    <string name="toast_need_overlay_permission">请先授予悬浮窗权限</string>
+    <string name="toast_bubble_started">悬浮球已开启</string>
+    <string name="toast_bubble_stopped">悬浮球已关闭</string>
+    <string name="toast_m1_placeholder">截图搜题将在 M2 接入\n（M1 仅验证悬浮窗与权限链路）</string>
+</resources>

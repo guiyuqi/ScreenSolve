@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ScreenSolve</string>
+
+    <string name="bubble_content_desc">Floating button: tap to solve a question</string>
+
+    <string name="notif_channel_name">Floating overlay</string>
+    <string name="notif_channel_desc">Keeps the floating button above other apps</string>
+    <string name="notif_title">ScreenSolve is running</string>
+    <string name="notif_text">Floating button is on. Tap it to solve a question.</string>
+    <string name="notif_action_stop">Stop</string>
+
+    <string name="main_subtitle">Screenshot question solver · M1 build</string>
+    <string name="main_section_permission">Permissions</string>
+    <string name="main_status_overlay_on">Display over other apps: granted</string>
+    <string name="main_status_overlay_off">Display over other apps: not granted (required to show the button)</string>
+    <string name="main_status_notif_on">Notifications: granted</string>
+    <string name="main_status_notif_off">Notifications: not granted (the service notification stays hidden)</string>
+    <string name="main_status_notif_na">Notifications: not required on this Android version</string>
+    <string name="main_btn_grant_overlay">Grant overlay permission</string>
+    <string name="main_btn_grant_notif">Grant notification permission</string>
+    <string name="main_section_switch">Floating button</string>
+    <string name="main_btn_start">Start floating button</string>
+    <string name="main_btn_stop">Stop floating button</string>
+    <string name="main_section_note">Current progress</string>
+    <string name="main_m1_note">M1 provides: showing the floating button, dragging it, edge snapping on release, tap handling, position memory, and the overlay / notification permission flow.\n\nScreen capture, region selection and the DeepSeek request come in M2 / M3. For now tapping the button only shows a notice.</string>
+
+    <string name="toast_need_overlay_permission">Please grant the overlay permission first</string>
+    <string name="toast_bubble_started">Floating button started</string>
+    <string name="toast_bubble_stopped">Floating button stopped</string>
+    <string name="toast_m1_placeholder">Screen capture comes in M2\n(M1 only verifies the overlay and permissions)</string>
+</resources>

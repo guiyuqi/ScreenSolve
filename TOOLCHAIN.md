@@ -338,10 +338,14 @@ Hi guiyuqi! You've successfully authenticated, but GitHub does not provide shell
 cd ~/dsh-workspace/ScreenSolve && git push
 ```
 
-**需要用 HTTPS 访问 GitHub 时**（curl 拉 release 资源、`git clone https://...` 等），用 `github-proxy` 现取地址：
+**需要用 HTTPS 访问 GitHub 时**（curl 拉 release 资源、`git clone https://...` 等），用 `github-proxy` 现取地址。
+
+⚠️ **注意路径**：agent 跑的是**非交互式 shell**，`~/.local/bin` **不在 PATH 里**，所以必须用绝对路径（交互式终端里才能省成 `github-proxy`）：
+
 ```bash
-curl -x "$(github-proxy)" -L -o file.zip https://github.com/owner/repo/releases/download/v1/file.zip
-git -c http.proxy="$(github-proxy)" clone https://github.com/owner/repo.git
+PROXY="$(~/.local/bin/github-proxy)"
+curl -x "$PROXY" -L -o file.zip https://github.com/owner/repo/releases/download/v1/file.zip
+git -c http.proxy="$PROXY" clone https://github.com/owner/repo.git
 ```
 
 ⚠️ **不要把代理设成全局环境变量**。全局 `http_proxy` 会把 Maven / `dl.google.com` 一起绕进代理，而它们直连有 5～9 MB/s，绕代理反而慢、且代理一关就全断。只对需要的命令按需指定。

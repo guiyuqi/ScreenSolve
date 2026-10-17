@@ -111,12 +111,16 @@ class DeepSeekClient {
                                     .optJSONArray("choices")
                                     ?.optJSONObject(0)
                                     ?.optJSONObject("delta")
-                                val reasoningDelta = delta?.optString("reasoning_content").orEmpty()
+                                // 注意：org.json 的 optString 遇到 JSON null 会返回字符串 "null"，
+                                // 流结束时 DeepSeek 会发 null，直接拼进去就会显示一大串 null
+                                val reasoningDelta = delta?.optString("reasoning_content")
+                                    .orEmpty().takeUnless { it == "null" }.orEmpty()
                                 if (reasoningDelta.isNotEmpty()) {
                                     reasoning.append(reasoningDelta)
                                     onReasoning(reasoning.toString())
                                 }
-                                val contentDelta = delta?.optString("content").orEmpty()
+                                val contentDelta = delta?.optString("content")
+                                    .orEmpty().takeUnless { it == "null" }.orEmpty()
                                 if (contentDelta.isNotEmpty()) {
                                     content.append(contentDelta)
                                     onContent(content.toString())

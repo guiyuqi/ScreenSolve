@@ -7,10 +7,12 @@ import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -49,6 +51,13 @@ class AnswerCardOverlay(
     private var footnoteView: TextView? = null
     private var copyButton: Button? = null
     private var current: Answer? = null
+
+    /** 窗口参数与高度调节状态（顶部锚点拖动时会直接改 params.height）。 */
+    private var paramsRef: WindowManager.LayoutParams? = null
+    private var handleDragStartY = 0f
+    private var handleDragStartHeight = 0
+    private var minHeightPx = 0
+    private var maxHeightPx = 0
 
     fun showLoading() {
         ensureView()
@@ -252,6 +261,27 @@ class AnswerCardOverlay(
             },
         )
 
+        // 顶部拖拽锚点：上下拉动改卡片高度，方便把框内答案和框外题目对照着看
+        val handleBar = View(context).apply {
+            background = GradientDrawable().apply {
+                cornerRadius = 3f * DisplayUtils.density(context)
+                setColor(HANDLE_COLOR)
+            }
+        }
+        val handleRow = FrameLayout(context).apply {
+            addView(
+                handleBar,
+                FrameLayout.LayoutParams(
+                    DisplayUtils.dp(context, 52),
+                    DisplayUtils.dp(context, 5),
+                    Gravity.CENTER_HORIZONTAL,
+                ),
+            )
+            val verticalPad = DisplayUtils.dp(context, 10)
+            setPadding(0, verticalPad, 0, verticalPad)
+        }
+
+        card.addView(handleRow, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         card.addView(headerView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         card.addView(
             scroll,
@@ -279,9 +309,33 @@ class AnswerCardOverlay(
             y = DisplayUtils.dp(context, 24)
         }
 
+        minHeightPx = (bounds.height() * 0.30f).toInt()
+        maxHeightPx = (bounds.height() * 0.90f).toInt()
+
         try {
             windowManager.addView(card, params)
             root = card
+            paramsRef = params
+            handleRow.setOnTouchListener { _, event ->
+                val live = paramsRef ?: return@setOnTouchListener false
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        handleDragStartY = event.rawY
+                        handleDragStartHeight = live.height
+                        true
+                    }
+
+                    MotionEvent.ACTION_MOVE -> {
+                        // 卡片贴底，所以"向上拖"等于变高
+                        val delta = (handleDragStartY - event.rawY).toInt()
+                        live.height = (handleDragStartHeight + delta).coerceIn(minHeightPx, maxHeightPx)
+                        runCatching { windowManager.updateViewLayout(card, live) }
+                        true
+                    }
+
+                    else -> false
+                }
+            }
         } catch (t: Throwable) {
             onClosed?.invoke()
         }
@@ -317,5 +371,6 @@ class AnswerCardOverlay(
         const val ANSWER_COLOR = 0xFF111111.toInt()
         const val BODY_COLOR = 0xFF222222.toInt()
         const val FOOTNOTE_COLOR = 0xFF6B6B6B.toInt()
+        const val HANDLE_COLOR = 0xFFC9C9C9.toInt()
     }
 }

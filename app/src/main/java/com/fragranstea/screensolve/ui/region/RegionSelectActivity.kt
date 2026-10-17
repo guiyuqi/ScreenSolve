@@ -40,10 +40,9 @@ class RegionSelectActivity : AppCompatActivity() {
         val hint = findViewById<TextView>(R.id.tvRegionHint)
 
         regionView.setFrame(frame)
-        confirmButton.isEnabled = false
-        hint.text = getString(R.string.region_hint_empty)
 
-        regionView.onSelectionChanged = { rect ->
+        // 视图已经给了预选框，所以初始就是可确认状态；onSizeChanged 后回调会再刷新一次尺寸文字
+        val render = { rect: android.graphics.Rect? ->
             confirmButton.isEnabled = rect != null
             hint.text = if (rect == null) {
                 getString(R.string.region_hint_empty)
@@ -51,6 +50,8 @@ class RegionSelectActivity : AppCompatActivity() {
                 getString(R.string.region_hint_sized, rect.width(), rect.height())
             }
         }
+        regionView.onSelectionChanged = render
+        render(regionView.selectionInBitmap())
 
         confirmButton.setOnClickListener {
             val rect = regionView.selectionInBitmap()

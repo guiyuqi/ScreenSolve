@@ -11,12 +11,18 @@ import android.view.MotionEvent
 import android.view.View
 import androidx.core.content.ContextCompat
 import com.fragranstea.screensolve.R
+import kotlin.math.hypot
 
 /**
- * 选区视图：把抓到的整屏画面铺满，用户拖动手指框出题目区域。
+ * 选区视图。
  *
- * 为什么用"抓到的位图"当背景而不是透明窗口看真实屏幕：
- * 这样遮罩、边框、坐标换算全都在同一张图上做，不会出现"看到的"和"截到的"不一致。
+ * 交互模型（M3 真机反馈后改成这版）：**先给一个预选框，再让用户拖四个角**。
+ * 比"空白画布上重新拖一个框"自然得多 —— 用户多数时候只需要微调，而不是从头画。
+ *
+ * 手势约定：
+ * - 拖角：调整该角（四角各自独立，命中判定给 32dp 的手指容差，比视觉半径大得多）
+ * - 框内拖动：整体平移
+ * - 框外拖动：重新画一个新框（保留旧的拖拽习惯）
  */
 class RegionSelectView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
 
@@ -32,48 +38,78 @@ class RegionSelectView(context: Context, attrs: AttributeSet? = null) : View(con
         strokeWidth = 2f * resources.displayMetrics.density
         color = ContextCompat.getColor(context, R.color.brand)
     }
+    private val handleFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = 0xFFFFFFFF.toInt()
+    }
+    private val handleStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 2.5f * resources.displayMetrics.density
+        color = ContextCompat.getColor(context, R.color.brand)
+    }
 
-    private var selection: RectF? = null
-    private var startX = 0f
-    private var startY = 0f
-    private var dragging = false
-
-    /** 绘制目标矩形，预分配以避开 onDraw 里的对象分配。 */
+    private val density = resources.displayMetrics.density
     private val dstRect = Rect()
 
-    /** 选区太小视为误触，不认为是有效选择。 */
-    private val minSize = 24f * resources.displayMetrics.density
+    /** 选区（视图坐标系）。 */
+    private val selRect = RectF()
+    private var hasSelection = false
+    private var pendingDefaultSelection = false
+
+    private var mode = DragMode.NONE
+    private var lastX = 0f
+    private var lastY = 0f
+
+    /** 手指命中半径：远大于绘制的圆点半径，避免"看起来点到了却拖不动"。 */
+    private val touchRadius = 34f * density
+    private val handleRadius = 9f * density
+    private val minSize = 32f * density
+
+    private enum class DragMode { NONE, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, MOVE, NEW }
+
+    fun setFrame(bitmap: Bitmap) {
+        frame = bitmap
+        if (width > 0 && height > 0) {
+            applyDefaultSelection()
+        } else {
+            pendingDefaultSelection = true
+        }
+        notifySelection()
+        invalidate()
+    }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         dstRect.set(0, 0, w, h)
+        if (pendingDefaultSelection) {
+            pendingDefaultSelection = false
+            applyDefaultSelection()
+            notifySelection()
+        }
     }
 
-    /** 纯自定义绘制视图，补上 performClick 以满足无障碍要求。 */
-    override fun performClick(): Boolean {
-        super.performClick()
-        return true
+    /**
+     * 预选框：屏幕中间偏大的一块，用户在此基础上微调。
+     * 底边留到 80% 而不是更下 —— 底部操作栏（约屏幕 13%）会盖住角落的拖拽点。
+     */
+    private fun applyDefaultSelection() {
+        if (width <= 0 || height <= 0) return
+        selRect.set(width * 0.06f, height * 0.10f, width * 0.94f, height * 0.80f)
+        hasSelection = true
     }
 
-    fun setFrame(bitmap: Bitmap) {
-        frame = bitmap
-        selection = null
-        onSelectionChanged?.invoke(null)
-        invalidate()
-    }
-
-    /** 当前选区（位图坐标系）；太小或不存在时返回 null。 */
+    /** 当前选区（位图坐标系）；不存在时返回 null。 */
     fun selectionInBitmap(): Rect? {
-        val sel = selection ?: return null
+        if (!hasSelection) return null
         val bmp = frame ?: return null
-        if (sel.width() < 4f || sel.height() < 4f) return null
+        if (selRect.width() < 4f || selRect.height() < 4f) return null
         val scaleX = bmp.width.toFloat() / width
         val scaleY = bmp.height.toFloat() / height
         return Rect(
-            (sel.left * scaleX).toInt().coerceIn(0, bmp.width - 1),
-            (sel.top * scaleY).toInt().coerceIn(0, bmp.height - 1),
-            (sel.right * scaleX).toInt().coerceIn(1, bmp.width),
-            (sel.bottom * scaleY).toInt().coerceIn(1, bmp.height),
+            (selRect.left * scaleX).toInt().coerceIn(0, bmp.width - 1),
+            (selRect.top * scaleY).toInt().coerceIn(0, bmp.height - 1),
+            (selRect.right * scaleX).toInt().coerceIn(1, bmp.width),
+            (selRect.bottom * scaleY).toInt().coerceIn(1, bmp.height),
         )
     }
 
@@ -81,59 +117,108 @@ class RegionSelectView(context: Context, attrs: AttributeSet? = null) : View(con
         super.onDraw(canvas)
         val bmp = frame ?: return
 
-        // 位图铺满整个视图（抓帧分辨率与屏幕同比例，所以不会被拉伸变形）
-        // dst 矩形预分配：onDraw 里 new Rect 会每次绘制都产生垃圾对象
         canvas.drawBitmap(bmp, null, dstRect, bitmapPaint)
 
-        val sel = selection
-        if (sel == null) {
-            // 还没有选区：整屏轻微变暗，提示"这里可以拖"
+        if (!hasSelection) {
             canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), dimPaint)
             return
         }
 
         // 只压暗选区之外的四个矩形，比 PorterDuff.CLEAR 更省事也更稳
-        canvas.drawRect(0f, 0f, width.toFloat(), sel.top, dimPaint)
-        canvas.drawRect(0f, sel.bottom, width.toFloat(), height.toFloat(), dimPaint)
-        canvas.drawRect(0f, sel.top, sel.left, sel.bottom, dimPaint)
-        canvas.drawRect(sel.right, sel.top, width.toFloat(), sel.bottom, dimPaint)
+        canvas.drawRect(0f, 0f, width.toFloat(), selRect.top, dimPaint)
+        canvas.drawRect(0f, selRect.bottom, width.toFloat(), height.toFloat(), dimPaint)
+        canvas.drawRect(0f, selRect.top, selRect.left, selRect.bottom, dimPaint)
+        canvas.drawRect(selRect.right, selRect.top, width.toFloat(), selRect.bottom, dimPaint)
 
-        canvas.drawRect(sel, borderPaint)
+        canvas.drawRect(selRect, borderPaint)
+
+        // 四角拖拽点
+        for ((cx, cy) in corners()) {
+            canvas.drawCircle(cx, cy, handleRadius, handleFillPaint)
+            canvas.drawCircle(cx, cy, handleRadius, handleStrokePaint)
+        }
     }
+
+    private fun corners(): List<Pair<Float, Float>> = listOf(
+        selRect.left to selRect.top,
+        selRect.right to selRect.top,
+        selRect.left to selRect.bottom,
+        selRect.right to selRect.bottom,
+    )
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (frame == null) return false
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                startX = event.x
-                startY = event.y
-                dragging = true
-                selection = null
-                onSelectionChanged?.invoke(null)
-                invalidate()
+                lastX = event.x
+                lastY = event.y
+                mode = resolveMode(event.x, event.y)
+                if (mode == DragMode.NEW) {
+                    // 从框外开始拖：清掉旧框，重新画
+                    hasSelection = false
+                    notifySelection()
+                    invalidate()
+                }
                 return true
             }
 
             MotionEvent.ACTION_MOVE -> {
-                if (!dragging) return false
-                selection = normalizedRect(startX, startY, event.x, event.y)
-                onSelectionChanged?.invoke(selectionInBitmap())
+                when (mode) {
+                    DragMode.NONE -> return false
+                    DragMode.NEW -> {
+                        val left = minOf(lastX, event.x).coerceIn(0f, width.toFloat())
+                        val right = maxOf(lastX, event.x).coerceIn(0f, width.toFloat())
+                        val top = minOf(lastY, event.y).coerceIn(0f, height.toFloat())
+                        val bottom = maxOf(lastY, event.y).coerceIn(0f, height.toFloat())
+                        if (right - left >= minSize && bottom - top >= minSize) {
+                            selRect.set(left, top, right, bottom)
+                            hasSelection = true
+                        }
+                    }
+
+                    DragMode.MOVE -> {
+                        val dx = event.x - lastX
+                        val dy = event.y - lastY
+                        val newLeft = (selRect.left + dx).coerceIn(0f, width - selRect.width())
+                        val newTop = (selRect.top + dy).coerceIn(0f, height - selRect.height())
+                        selRect.offsetTo(newLeft, newTop)
+                        lastX = event.x
+                        lastY = event.y
+                    }
+
+                    DragMode.TOP_LEFT -> {
+                        selRect.left = event.x.coerceIn(0f, selRect.right - minSize)
+                        selRect.top = event.y.coerceIn(0f, selRect.bottom - minSize)
+                    }
+
+                    DragMode.TOP_RIGHT -> {
+                        selRect.right = event.x.coerceIn(selRect.left + minSize, width.toFloat())
+                        selRect.top = event.y.coerceIn(0f, selRect.bottom - minSize)
+                    }
+
+                    DragMode.BOTTOM_LEFT -> {
+                        selRect.left = event.x.coerceIn(0f, selRect.right - minSize)
+                        selRect.bottom = event.y.coerceIn(selRect.top + minSize, height.toFloat())
+                    }
+
+                    DragMode.BOTTOM_RIGHT -> {
+                        selRect.right = event.x.coerceIn(selRect.left + minSize, width.toFloat())
+                        selRect.bottom = event.y.coerceIn(selRect.top + minSize, height.toFloat())
+                    }
+                }
+                notifySelection()
                 invalidate()
                 return true
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                dragging = false
-                val current = selection
-                if (current != null && (current.width() < minSize || current.height() < minSize)) {
-                    // 太小当作误触，清空选区让用户重来
-                    selection = null
+                // 拖出来的新框太小，或者被拖成了零面积：恢复预选框，别让用户面对"什么都没有"
+                if (!hasSelection || selRect.width() < minSize || selRect.height() < minSize) {
+                    applyDefaultSelection()
                 }
-                // 没有形成有效选区就等同于一次点击（无障碍要求 onTouchEvent 里补 performClick）
-                if (selection == null && event.actionMasked == MotionEvent.ACTION_UP) {
-                    performClick()
-                }
-                onSelectionChanged?.invoke(selectionInBitmap())
+                mode = DragMode.NONE
+                if (event.actionMasked == MotionEvent.ACTION_UP) performClick()
+                notifySelection()
                 invalidate()
                 return true
             }
@@ -141,12 +226,28 @@ class RegionSelectView(context: Context, attrs: AttributeSet? = null) : View(con
         return super.onTouchEvent(event)
     }
 
-    private fun normalizedRect(x1: Float, y1: Float, x2: Float, y2: Float): RectF {
-        val left = minOf(x1, x2).coerceIn(0f, width.toFloat())
-        val right = maxOf(x1, x2).coerceIn(0f, width.toFloat())
-        val top = minOf(y1, y2).coerceIn(0f, height.toFloat())
-        val bottom = maxOf(y1, y2).coerceIn(0f, height.toFloat())
-        return RectF(left, top, right, bottom)
+    override fun performClick(): Boolean {
+        super.performClick()
+        return true
+    }
+
+    private fun resolveMode(x: Float, y: Float): DragMode {
+        if (!hasSelection) return DragMode.NEW
+        val corners = listOf(
+            DragMode.TOP_LEFT to (selRect.left to selRect.top),
+            DragMode.TOP_RIGHT to (selRect.right to selRect.top),
+            DragMode.BOTTOM_LEFT to (selRect.left to selRect.bottom),
+            DragMode.BOTTOM_RIGHT to (selRect.right to selRect.bottom),
+        )
+        for ((cornerMode, point) in corners) {
+            val distance = hypot((x - point.first).toDouble(), (y - point.second).toDouble())
+            if (distance <= touchRadius) return cornerMode
+        }
+        return if (selRect.contains(x, y)) DragMode.MOVE else DragMode.NEW
+    }
+
+    private fun notifySelection() {
+        onSelectionChanged?.invoke(selectionInBitmap())
     }
 
     private companion object {

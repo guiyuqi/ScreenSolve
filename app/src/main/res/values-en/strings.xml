@@ -41,7 +41,7 @@
     <string name="toast_capture_failed">Failed to grab a frame, please retry</string>
 
     <string name="region_hint_empty">Press and drag to select the question area</string>
-    <string name="region_hint_sized">Selected %1$d × %2$d px</string>
+    <string name="region_hint_sized">Selected %1$d × %2$d px · drag a corner to fine-tune, drag inside to move</string>
     <string name="region_confirm">Solve this</string>
     <string name="region_cancel">Cancel</string>
 

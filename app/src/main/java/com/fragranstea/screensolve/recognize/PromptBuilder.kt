@@ -41,7 +41,7 @@ object PromptBuilder {
 
     /** 视觉直传：模型自己看截图。 */
     fun systemPrompt(style: String): String = buildString {
-        appendLine("你是一个解题助手。用户会给你一张屏幕截图，截图中包含一道题目。")
+        appendLine("你是一个解题助手。用户会给你一张屏幕截图，截图中可能有一道题，也可能有多道题。")
         appendLine("请识别题目并作答。")
         appendLine()
         appendLine("你只能输出一个 JSON 对象，不要输出任何其它文字，不要用 markdown 代码块包裹。")
@@ -53,7 +53,12 @@ object PromptBuilder {
         appendLine("   不要改写、不要概括、不要省略选项 —— 用户要靠这段原文核对你是不是识别对了。")
         appendLine("2. 如果图片里选项显示不全、或根本没有选项（有些网页只渲染了题干），")
         appendLine("   就在 question 末尾注明「（图片中未显示选项）」，严禁自己补全或猜测选项。")
-        appendLine("3. 如果图片不清晰、或画面里没有题目，answer 填写\"无法识别\"，并在 conclusion 说明原因。")
+                appendLine("3. 【多题同屏】如果画面里有多道题，必须**逐题作答**，一道都不要漏：")
+        appendLine("   - answer 按题号逐行列出，例如 \"1. D\\n2. B\\n3. 12cm\"；")
+        appendLine("   - question 里把所有题的题干与选项都抄下来，用题号分隔；")
+        appendLine("   - steps 也按题号分组，先写\"第1题：…\"再写\"第2题：…\"；")
+        appendLine("   - 不要只回答第一道，也不要因为题多就合并成一个答案。")
+        appendLine("4. 如果图片不清晰、或画面里没有题目，answer 填写\"无法识别\"，并在 conclusion 说明原因。")
         appendLine("   严禁编造题目或编造条件。")
         appendLine()
         appendLine(OUTPUT_RULES)
@@ -62,7 +67,7 @@ object PromptBuilder {
 
     /** OCR 通道：模型拿到的是端侧识别出来的文本。 */
     fun systemPromptForText(style: String): String = buildString {
-        appendLine("你是一个解题助手。用户会给你一段从屏幕截图里 OCR 出来的题目文本。")
+        appendLine("你是一个解题助手。用户会给你一段从屏幕截图里 OCR 出来的题目文本，可能包含一道或多道题。")
         appendLine()
         appendLine("你只能输出一个 JSON 对象，不要输出任何其它文字，不要用 markdown 代码块包裹。")
         appendLine("JSON 结构必须严格如下：")

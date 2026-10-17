@@ -124,4 +124,5 @@
     <string name="history_detail">历史详情</string>
     <string name="history_answer_prefix">答案：%1$s</string>
     <string name="main_btn_history">历史记录（最近 10 次）</string>
+    <string name="history_view_image">查看题目图</string>
 </resources>

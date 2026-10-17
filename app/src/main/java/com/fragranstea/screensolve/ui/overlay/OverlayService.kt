@@ -26,10 +26,17 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.fragranstea.screensolve.R
+import com.fragranstea.screensolve.capture.FrameHolder
+import com.fragranstea.screensolve.capture.ImagePipeline
 import com.fragranstea.screensolve.capture.ProjectionSession
 import com.fragranstea.screensolve.data.BubblePositionStore
+import com.fragranstea.screensolve.data.SecureKeyStore
+import com.fragranstea.screensolve.data.SettingsStore
+import com.fragranstea.screensolve.recognize.SolveEngine
+import com.fragranstea.screensolve.recognize.SolveOutcome
 import com.fragranstea.screensolve.ui.consent.ConsentActivity
 import com.fragranstea.screensolve.ui.main.MainActivity
+import com.fragranstea.screensolve.ui.region.RegionSelectActivity
 import com.fragranstea.screensolve.util.DisplayUtils
 
 /**
@@ -56,7 +63,10 @@ class OverlayService :
     private var bubbleParams: WindowManager.LayoutParams? = null
 
     private var projectionSession: ProjectionSession? = null
-    private var preview: FramePreviewOverlay? = null
+    private var answerCard: AnswerCardOverlay? = null
+
+    private lateinit var settingsStore: SettingsStore
+    private lateinit var solveEngine: SolveEngine
 
     /** 用户点悬浮球时若还没有会话，授权完成之后要把这次抓帧继续做完。 */
     private var capturePendingAfterConsent = false
@@ -66,6 +76,8 @@ class OverlayService :
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         positionStore = BubblePositionStore(this)
+        settingsStore = SettingsStore(this)
+        solveEngine = SolveEngine(settingsStore, SecureKeyStore(this))
         startForegroundCompat()
         showBubble()
         isRunning = true
@@ -78,7 +90,13 @@ class OverlayService :
             ACTION_CONSENT_RESULT -> handleConsentResult(intent)
             ACTION_CONSENT_DENIED -> {
                 capturePendingAfterConsent = false
+                setBubbleVisible(true)
                 toast(R.string.toast_capture_denied)
+            }
+            ACTION_REGION_SELECTED -> handleRegionSelected()
+            ACTION_REGION_CANCELLED -> {
+                FrameHolder.clear()
+                setBubbleVisible(true)
             }
         }
         // 用 NOT_STICKY：进程被杀后不自动复活，避免用户以为已关闭却仍在运行
@@ -156,8 +174,8 @@ class OverlayService :
         }
         projectionSession = null
         isSessionActive = false
-        preview?.remove()
-        preview = null
+        answerCard?.remove()
+        answerCard = null
     }
 
     // ---------------- 悬浮球 ----------------
@@ -268,17 +286,20 @@ class OverlayService :
                 }
                 val bitmap = session.snapshot()
                 val frameIndex = session.frameCount
-                if (bubbleWasVisible) onMain { setBubbleVisible(true) }
 
                 if (bitmap == null) {
                     Log.w(TAG, "抓帧为空（会话可能刚建立，还没产生第一帧）")
-                    onMain { toast(R.string.toast_capture_failed) }
+                    onMain {
+                        setBubbleVisible(true)
+                        toast(R.string.toast_capture_failed)
+                    }
                 } else {
                     Log.i(
                         TAG,
                         "抓帧成功 frame=$frameIndex fresh=$gotFreshFrame size=${bitmap.width}x${bitmap.height}",
                     )
-                    onMain { showPreview(bitmap, frameIndex, gotFreshFrame) }
+                    // 悬浮球保持隐藏：紧接着要弹选区界面，它不该浮在选区上面
+                    onMain { launchRegionSelector(bitmap) }
                 }
             } catch (t: Throwable) {
                 Log.e(TAG, "抓帧异常", t)
@@ -292,18 +313,74 @@ class OverlayService :
         }, "screensolve-capture").start()
     }
 
-    private fun showPreview(bitmap: Bitmap, frameIndex: Long, fresh: Boolean) {
-        preview?.remove()
+    private fun launchRegionSelector(frame: Bitmap) {
+        FrameHolder.frame = frame
+        FrameHolder.cropped = null
+        try {
+            startActivity(
+                Intent(this, RegionSelectActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        } catch (t: Throwable) {
+            Log.e(TAG, "拉起选区界面失败", t)
+            FrameHolder.clear()
+            setBubbleVisible(true)
+            toast(R.string.toast_capture_failed)
+        }
+    }
 
-        // 卡片停靠在悬浮球的另一侧，避免盖住悬浮球（否则用户想再抓一次会点到卡片）
+    /**
+     * 用户在选区界面确认了区域：裁剪 → 压缩 → 调模型 → 填进答案卡片。
+     *
+     * 除了解析结果以外全部在工作线程执行：图片压缩和网络请求都慢，放主线程会卡 UI（ANR）。
+     */
+    private fun handleRegionSelected() {
+        setBubbleVisible(true)
+
+        val cropped = FrameHolder.cropped
+        FrameHolder.frame = null
+        FrameHolder.cropped = null
+        if (cropped == null) {
+            toast(R.string.toast_capture_failed)
+            return
+        }
+
+        val card = showAnswerCard()
+        card.showLoading()
+
+        Thread({
+            val jpeg = try {
+                val scaled = ImagePipeline.scaleToMaxLongSide(cropped)
+                try {
+                    ImagePipeline.toJpeg(scaled)
+                } finally {
+                    if (scaled !== cropped) scaled.recycle()
+                }
+            } finally {
+                cropped.recycle()
+            }
+            val outcome = solveEngine.solveVision(jpeg)
+            onMain {
+                when (outcome) {
+                    is SolveOutcome.Success -> card.showAnswer(outcome.answer)
+                    is SolveOutcome.Failure -> card.showError(outcome.error, outcome.detail)
+                }
+            }
+        }, "screensolve-solve").start()
+    }
+
+    private fun showAnswerCard(): AnswerCardOverlay {
+        answerCard?.remove()
+
+        // 卡片停靠在悬浮球的另一侧，避免遮挡
         val params = bubbleParams
         val bounds = DisplayUtils.screenBounds(this)
         val bubbleOnRight = params == null || (params.x + params.width / 2) > bounds.width() / 2
 
-        val overlay = FramePreviewOverlay(this, windowManager)
-        overlay.onClosed = { if (preview === overlay) preview = null }
-        preview = overlay
-        overlay.show(bitmap, frameIndex, fresh, bubbleOnRight)
+        val card = AnswerCardOverlay(this, windowManager, bubbleOnRight)
+        card.onClosed = { if (answerCard === card) answerCard = null }
+        answerCard = card
+        return card
     }
 
     private fun setBubbleVisible(visible: Boolean) {
@@ -431,6 +508,8 @@ class OverlayService :
         const val ACTION_RELEASE_SESSION = "com.fragranstea.screensolve.action.RELEASE_SESSION"
         const val ACTION_CONSENT_RESULT = "com.fragranstea.screensolve.action.CONSENT_RESULT"
         const val ACTION_CONSENT_DENIED = "com.fragranstea.screensolve.action.CONSENT_DENIED"
+        const val ACTION_REGION_SELECTED = "com.fragranstea.screensolve.action.REGION_SELECTED"
+        const val ACTION_REGION_CANCELLED = "com.fragranstea.screensolve.action.REGION_CANCELLED"
 
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
@@ -483,6 +562,19 @@ class OverlayService :
         fun deliverConsentDenied(context: Context) {
             val intent = Intent(context, OverlayService::class.java)
                 .setAction(ACTION_CONSENT_DENIED)
+            ContextCompat.startForegroundService(context, intent)
+        }
+
+        /** 选区完成：裁剪结果放在 [FrameHolder.cropped]，这里只负责通知服务继续。 */
+        fun notifyRegionSelected(context: Context) {
+            val intent = Intent(context, OverlayService::class.java)
+                .setAction(ACTION_REGION_SELECTED)
+            ContextCompat.startForegroundService(context, intent)
+        }
+
+        fun notifyRegionCancelled(context: Context) {
+            val intent = Intent(context, OverlayService::class.java)
+                .setAction(ACTION_REGION_CANCELLED)
             ContextCompat.startForegroundService(context, intent)
         }
     }

@@ -29,18 +29,66 @@
     <string name="main_btn_release_session">Release capture session</string>
 
     <string name="main_section_note">Current progress</string>
-    <string name="main_m1_note">M1 provides: showing the floating button, dragging it, edge snapping on release, tap handling, position memory, and the overlay / notification permission flow.\n\nM2 provides: a long-lived capture session after a single consent, grabbing the current frame on tap, and a preview of the grabbed frame (to confirm it is fresh and does not contain the button itself).\n\nM3 will crop the grabbed frame to the selected region and call DeepSeek.</string>
+    <string name="main_m1_note">M1 provides: showing the floating button, dragging it, edge snapping on release, tap handling, position memory, and the overlay / notification permission flow.\n\nM2 provides: a long-lived capture session after a single consent, and grabbing the current frame on tap.\n\nM3 provides: drag-to-select region, crop and compress, a DeepSeek vision call, and an answer card (question echo, step-by-step solution, confidence hint).\n\nNext: M4 adds the on-device OCR channel, streaming output and history.</string>
 
     <string name="toast_need_overlay_permission">Please grant the overlay permission first</string>
     <string name="toast_bubble_started">Floating button started</string>
     <string name="toast_bubble_stopped">Floating button stopped</string>
-    <string name="toast_m1_placeholder">Screen capture comes in M3\n(M2 only verifies the frame grabbing)</string>
 
     <string name="toast_capture_denied">Screen capture was not granted, cannot grab a frame</string>
     <string name="toast_session_ready">Capture session ready. Tap the floating button to grab a frame.</string>
     <string name="toast_session_lost">The system ended the capture session. Consent is needed again.</string>
     <string name="toast_capture_failed">Failed to grab a frame, please retry</string>
-    <string name="preview_info_fresh">Frame %1$d · %2$d×%3$d · fresh (button hidden first)</string>
-    <string name="preview_info_stale">Frame %1$d · %2$d×%3$d · no new frame arrived, image may be stale</string>
-    <string name="preview_close">Close preview</string>
+
+    <string name="region_hint_empty">Press and drag to select the question area</string>
+    <string name="region_hint_sized">Selected %1$d × %2$d px</string>
+    <string name="region_confirm">Solve this</string>
+    <string name="region_cancel">Cancel</string>
+
+    <string name="answer_state_loading">Solving…</string>
+    <string name="answer_state_loading_hint">The selected area was sent to the model. Deep thinking takes longer.</string>
+    <string name="answer_state_failed">Failed</string>
+    <string name="answer_header_subject">%1$s · confidence %2$d%%</string>
+    <string name="answer_header_plain">Result</string>
+    <string name="answer_question">Question: %1$s</string>
+    <string name="answer_body_answer">Answer: %1$s</string>
+    <string name="answer_body_steps">Steps:</string>
+    <string name="answer_body_knowledge">Concepts: %1$s</string>
+    <string name="answer_low_confidence">Warning: the model is not confident. Check that the question text above was read correctly.</string>
+    <string name="answer_copy">Copy answer</string>
+    <string name="answer_close">Close</string>
+    <string name="answer_copied">Answer copied</string>
+    <string name="answer_error_detail">Detail: %1$s</string>
+
+    <string name="error_no_api_key">No API key yet. Open Settings from the main screen and paste your DeepSeek API key.</string>
+    <string name="error_invalid_key">The API key is invalid or was deleted. Please set it again in Settings.</string>
+    <string name="error_no_balance">Insufficient balance. Top up on the DeepSeek platform and retry.</string>
+    <string name="error_rate_limit">Too many requests. Wait a few seconds and retry.</string>
+    <string name="error_network">Network unavailable. Check your connection.</string>
+    <string name="error_timeout">The request timed out. Turn off deep thinking or retry later.</string>
+    <string name="error_empty_response">The model returned no content. Please retry.</string>
+    <string name="error_bad_response">The server returned something unparsable. Please retry.</string>
+    <string name="error_request_too_large">The image is too large. Select a smaller area.</string>
+    <string name="error_unknown">Something went wrong. Please retry.</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_key">API key</string>
+    <string name="settings_key_saved">Saved (encrypted with the Android Keystore, never stored in plain text)</string>
+    <string name="settings_key_missing">Not set. Solving needs a DeepSeek API key.</string>
+    <string name="settings_key_hint">Paste your DeepSeek API key</string>
+    <string name="settings_key_clear">Delete the saved key</string>
+    <string name="settings_key_cleared">Deleted</string>
+    <string name="settings_section_channel">Solving channel</string>
+    <string name="settings_channel_vision">Image passthrough (recommended): send the screenshot to the multimodal model</string>
+    <string name="settings_channel_ocr_disabled">On-device OCR + text model (coming in M4)</string>
+    <string name="settings_section_thinking">Thinking mode</string>
+    <string name="settings_thinking_label">Deep thinking (more accurate, slower)</string>
+    <string name="settings_thinking_hint">The model reasons first, which helps with math, at the cost of latency.</string>
+    <string name="settings_section_prompt">Custom prompt</string>
+    <string name="settings_prompt_reset">Reset to default</string>
+    <string name="settings_save">Save</string>
+    <string name="settings_saved">Saved</string>
+
+    <string name="main_section_settings">Settings</string>
+    <string name="main_btn_settings">Open settings (API key / prompt)</string>
 </resources>

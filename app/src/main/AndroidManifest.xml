@@ -58,6 +58,17 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!-- 选区界面：全屏显示抓到的画面，拖框选题目区域 -->
+        <activity
+            android:name=".ui.region.RegionSelectActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ScreenSolve" />
+
+        <activity
+            android:name=".ui.settings.SettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_title" />
+
     </application>
 
 </manifest>

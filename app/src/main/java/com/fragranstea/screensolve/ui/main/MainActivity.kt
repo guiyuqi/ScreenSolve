@@ -1,6 +1,7 @@
 package com.fragranstea.screensolve.ui.main
 
 import android.Manifest
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -11,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.fragranstea.screensolve.R
 import com.fragranstea.screensolve.ui.overlay.OverlayService
+import com.fragranstea.screensolve.ui.settings.SettingsActivity
 import com.fragranstea.screensolve.util.Permissions
 
 /**
@@ -41,6 +43,9 @@ class MainActivity : AppCompatActivity() {
         toggleButton = findViewById(R.id.btnToggle)
         sessionStatus = findViewById(R.id.tvSessionStatus)
         releaseSessionButton = findViewById(R.id.btnReleaseSession)
+        findViewById<Button>(R.id.btnOpenSettings).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
 
         grantOverlayButton.setOnClickListener {
             // 悬浮窗权限是特殊权限，只能跳系统设置页

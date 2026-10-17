@@ -456,13 +456,13 @@ WSL 里没有 USB 直通、也没有 `/dev/kvm`（详见 `ENV_CHECK.md`），所
 | 里程碑 | 内容 | 验收标准 |
 |---|---|---|
 | **M0 环境** ✅ **已完成** | JDK 21 + Android SDK 全局装到 `/opt/android-sdk`，最小项目构建成功（详见 `TOOLCHAIN.md`） | `./gradlew assembleDebug` 通过并产出 6.4 MB APK ✅；`adb devices` 看到手机 ⬜ 待插真机 |
-| **M1 悬浮窗** 🟡 **代码完成，待真机验证** | 已实现：`OverlayService`（前台服务，specialUse 类型 + 常驻通知 + 通知栏"关闭"）、`FloatingBubbleView`（自绘悬浮球：拖动/松手吸边/点击）、`MainActivity`（权限引导 + 总开关）、位置记忆（`BubblePositionStore`）；构建通过，产出 8.4 MB APK | 编译通过 ✅；**待真机验证**：其他应用上层稳定显示、切后台不消失、开关能彻底关掉、旋转后不出屏 |
-| **M2 截图 + 选区** ⚠️**风险最高** | MediaProjection 会话、抓帧、RegionSelectActivity、裁剪 | 真机上验证「单会话多次抓帧」是否可行；选区坐标准确；多次连续搜题不崩、不漏内存 |
-| **M3 打通视觉识别** | DeepSeekClient（含 SSE 流式）+ 设置页填 Key + 视觉通道 + 结果卡片 | 截一道数学题，3~8 秒内出正确答案；Key 错误/断网/余额不足都有清晰提示 |
-| **M4 OCR 通道 + 切换** | ML Kit 中文 OCR + OcrThenLlmRecognizer + 设置页切换 | 两条通道对同一道题都能给出答案，切换后立即生效 |
-| **M5 体验打磨** | 追问多轮、历史记录、复制、思考模式三档、错误重试、位置记忆、开屏引导 | 连续使用 30 分钟不崩、不卡、不烫手（功耗看 M2 的 `setSurface(null)` 优化是否生效） |
+| **M1 悬浮窗** ✅ **真机验证通过** | `OverlayService`（前台服务 + 常驻通知 + 通知栏"关闭"）、`FloatingBubbleView`（自绘悬浮球：拖动/松手吸边/点击）、`MainActivity`（权限引导 + 总开关）、位置记忆 | 其他应用上层稳定显示、切后台不消失、开关能彻底关掉（详见 §12） |
+| **M2 截图 + 选区** ✅ **真机验证通过** | `ProjectionSession`（一次授权、会话常驻、持续排空保留最新帧）、`ConsentActivity`（无界面授权中转） | 连续 3 次抓帧不再弹授权；滚动+静置 8 秒后抓帧与真实屏幕逐像素差异 2.7%（详见 §12） |
+| **M3 打通视觉识别** 🟡 **代码完成，待真机验证** | `RegionSelectView`/`RegionSelectActivity`（拖框选区）、`ImagePipeline`（裁剪→缩放→JPEG→base64）、`SecureKeyStore`（Keystore AES-GCM 加密存 Key）、`SettingsActivity`（Key / 通道 / 深度思考 / 自定义提示词）、`DeepSeekClient`（HttpURLConnection）、`PromptBuilder` + `AnswerParser`、`AnswerCardOverlay`（题干回显/答案/解析/置信度/复制） | 真机跑通：拖框 → 识别 → 答案卡片；Key 错误/断网/余额不足都有可操作提示。**SSE 流式输出留到 M4**（当前是同步请求 + loading 卡片） |
+| **M4 OCR 通道 + 切换** | ML Kit 中文 OCR + 设置页切换 + SSE 流式输出 | 两条通道对同一道题都能给出答案，切换后立即生效；流式输出有打字机效果 |
+| **M5 体验打磨** | 追问多轮、历史记录、思考模式三档、错误重试、位置记忆、开屏引导 | 连续使用 30 分钟不崩、不卡、不烫手 |
 
-**M0 / M1 均已落地**：M0 环境实测通过；M1 代码完成并构建出 8.4 MB 的 APK，等你在真机上验证悬浮窗行为后即可进 M2。
+**M0–M2 已真机验证通过，M3 代码完成待验收**。M3 的实现取舍：先用同步请求 + "正在识题…"卡片保证正确性，SSE 流式打字机效果放到 M4 与 OCR 通道一起做。
 
 ---
 

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_title"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <!-- API Key -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="@string/settings_section_key" />
+
+        <TextView
+            android:id="@+id/tvKeyStatus"
+            style="@style/StatusText" />
+
+        <EditText
+            android:id="@+id/etApiKey"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/settings_key_hint"
+            android:importantForAutofill="no"
+            android:inputType="textPassword"
+            android:maxLines="1" />
+
+        <Button
+            android:id="@+id/btnClearKey"
+            style="@style/ActionButton"
+            android:text="@string/settings_key_clear" />
+
+        <!-- 通道 -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="@string/settings_section_channel" />
+
+        <RadioGroup
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/rbChannelVision"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_channel_vision" />
+
+            <RadioButton
+                android:id="@+id/rbChannelOcr"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_channel_ocr_disabled" />
+        </RadioGroup>
+
+        <!-- 深度思考 -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="@string/settings_section_thinking" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/swDeepThinking"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_thinking_label" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_thinking_hint"
+            android:textSize="12sp" />
+
+        <!-- 提示词 -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="@string/settings_section_prompt" />
+
+        <EditText
+            android:id="@+id/etPrompt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="top"
+            android:importantForAutofill="no"
+            android:inputType="textMultiLine"
+            android:minLines="4"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btnResetPrompt"
+            style="@style/ActionButton"
+            android:text="@string/settings_prompt_reset" />
+
+        <Button
+            android:id="@+id/btnSaveSettings"
+            style="@style/ActionButton"
+            android:text="@string/settings_save" />
+
+    </LinearLayout>
+
+</ScrollView>

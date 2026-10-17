@@ -70,6 +70,15 @@
 
         <TextView
             style="@style/SectionTitle"
+            android:text="@string/main_section_settings" />
+
+        <Button
+            android:id="@+id/btnOpenSettings"
+            style="@style/ActionButton"
+            android:text="@string/main_btn_settings" />
+
+        <TextView
+            style="@style/SectionTitle"
             android:text="@string/main_section_note" />
 
         <TextView

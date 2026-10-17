@@ -38,20 +38,73 @@
     <string name="main_btn_release_session">释放截屏会话</string>
 
     <string name="main_section_note">当前进度</string>
-    <string name="main_m1_note">M1 已完成：悬浮球的显示、拖动、松手吸边、点击响应、位置记忆，以及悬浮窗/通知权限引导。\n\nM2 已完成：一次授权后的常驻截屏会话、点悬浮球抓取当前帧、抓帧结果预览（用来确认画面新鲜、且没有把自己截进去）。\n\nM3 将把抓到的画面裁成选区并调用 DeepSeek 识题。</string>
+    <string name="main_m1_note">M1 已完成：悬浮球的显示、拖动、松手吸边、点击响应、位置记忆，以及悬浮窗/通知权限引导。\n\nM2 已完成：一次授权后的常驻截屏会话、点悬浮球抓取当前帧。\n\nM3 已完成：拖框选区 → 裁剪压缩 → 调用 DeepSeek 视觉模型 → 答案卡片（含题干回显、分步解析、置信度提示）。\n\n下一步 M4：端侧 OCR 通道、流式输出、历史记录。</string>
 
     <!-- 提示 -->
     <string name="toast_need_overlay_permission">请先授予悬浮窗权限</string>
     <string name="toast_bubble_started">悬浮球已开启</string>
     <string name="toast_bubble_stopped">悬浮球已关闭</string>
-    <string name="toast_m1_placeholder">截图搜题将在 M3 接入\n（M2 只验证抓帧链路）</string>
 
-    <!-- M2：截屏会话与抓帧预览 -->
+    <!-- M2：截屏会话 -->
     <string name="toast_capture_denied">未获得截屏授权，无法抓帧</string>
     <string name="toast_session_ready">截屏会话已就绪，再点悬浮球即可抓帧</string>
     <string name="toast_session_lost">截屏会话已被系统结束，需要重新授权</string>
     <string name="toast_capture_failed">抓帧失败，请重试</string>
-    <string name="preview_info_fresh">第 %1$d 帧 · %2$d×%3$d · 新帧（已先隐藏悬浮球）</string>
-    <string name="preview_info_stale">第 %1$d 帧 · %2$d×%3$d · 未等到新帧，画面可能偏旧</string>
-    <string name="preview_close">关闭预览</string>
+
+    <!-- M3：选区 -->
+    <string name="region_hint_empty">按住并拖动，框出要识别的题目区域</string>
+    <string name="region_hint_sized">已选择 %1$d × %2$d 像素</string>
+    <string name="region_confirm">识别这道题</string>
+    <string name="region_cancel">取消</string>
+
+    <!-- M3：答案卡片 -->
+    <string name="answer_state_loading">正在识题…</string>
+    <string name="answer_state_loading_hint">已把选区发给模型，正在等待结果。开启"深度思考"会更慢一些。</string>
+    <string name="answer_state_failed">识题失败</string>
+    <string name="answer_header_subject">%1$s · 置信度 %2$d%%</string>
+    <string name="answer_header_plain">识题结果</string>
+    <string name="answer_question">题目：%1$s</string>
+    <string name="answer_body_answer">答案：%1$s</string>
+    <string name="answer_body_steps">解析：</string>
+    <string name="answer_body_knowledge">知识点：%1$s</string>
+    <string name="answer_low_confidence">⚠ 模型对这道题把握不大，建议核对上面的题目原文是否识别正确。</string>
+    <string name="answer_copy">复制答案</string>
+    <string name="answer_close">关闭</string>
+    <string name="answer_copied">答案已复制</string>
+    <string name="answer_error_detail">细节：%1$s</string>
+
+    <!-- 错误话术：要能让用户知道下一步做什么 -->
+    <string name="error_no_api_key">还没有填写 API Key。回主界面 → 设置，填入 DeepSeek API Key 后再试。</string>
+    <string name="error_invalid_key">API Key 无效或已被删除，请到设置页重新填写。</string>
+    <string name="error_no_balance">账户余额不足，请到 DeepSeek 平台充值后再试。</string>
+    <string name="error_rate_limit">请求太频繁了，等几秒再试。</string>
+    <string name="error_network">网络不可用，请检查网络连接。</string>
+    <string name="error_timeout">等太久了，请求超时。可以关掉"深度思考"再试，或稍后重试。</string>
+    <string name="error_empty_response">模型没有返回内容，重试一次看看。</string>
+    <string name="error_bad_response">服务端返回了无法解析的内容，重试一次看看。</string>
+    <string name="error_request_too_large">图片太大了，请框选更小的区域。</string>
+    <string name="error_unknown">出现了未知错误，请重试。</string>
+
+    <!-- 设置页 -->
+    <string name="settings_title">设置</string>
+    <string name="settings_section_key">API Key</string>
+    <string name="settings_key_saved">已保存（加密存在 Android Keystore，不落明文）</string>
+    <string name="settings_key_missing">未设置。识题需要 DeepSeek API Key。</string>
+    <string name="settings_key_hint">粘贴 DeepSeek API Key</string>
+    <string name="settings_key_clear">清除已保存的 Key</string>
+    <string name="settings_key_cleared">已清除</string>
+    <string name="settings_section_channel">识题通道</string>
+    <string name="settings_channel_vision">视觉直传（推荐）：截图直接交给多模态模型</string>
+    <string name="settings_channel_ocr_disabled">端侧 OCR + 文本模型（M4 提供，暂不可选）</string>
+    <string name="settings_section_thinking">思考模式</string>
+    <string name="settings_thinking_label">深度思考（更准，但更慢）</string>
+    <string name="settings_thinking_hint">开启后模型先推理再作答，数学题正确率更高，代价是等待更久。</string>
+    <string name="settings_section_prompt">自定义提示词</string>
+    <string name="settings_prompt_reset">恢复默认</string>
+    <string name="settings_save">保存</string>
+    <string name="settings_saved">已保存</string>
+
+    <!-- 主界面新增 -->
+    <string name="main_section_settings">设置</string>
+    <string name="main_btn_settings">打开设置（API Key / 提示词）</string>
 </resources>

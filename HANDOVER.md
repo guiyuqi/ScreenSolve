@@ -84,7 +84,7 @@ app/src/main/java/com/fragranstea/screensolve/
   超宽公式自动缩放或改块级排版（不再被右边界裁掉）
 - Key 加密落盘（只有密文）；改其它设置保存**不会**覆盖 Key
 - 历史详情 LaTeX 渲染正常；全屏看原图可打开
-- lite release 1.37 MB / full release 14.5 MB（差异只有 ML Kit）
+- lite release 1.46 MB / full release 14.5 MB（差异只有 ML Kit）
 
 ### 已知问题（按优先级）
 1. **历史详情还是弹窗**，且"查看题目图"返回后会回到列表（反逻辑）。目标：历史直接进会话视图

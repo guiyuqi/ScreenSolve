@@ -137,4 +137,5 @@
     <string name="history_missing">这条记录已经不在了</string>
     <string name="conversation_image_missing">这条记录没有存题目图，无法继续追问</string>
     <string name="conversation_failed">追问失败：%1$s</string>
+    <string name="image_zoom_hint">双击或双指缩放，单击关闭</string>
 </resources>

@@ -66,6 +66,8 @@ app/src/main/java/com/fragranstea/screensolve/
 │  ├─ settings/SettingsActivity.kt     Key / 通道 / 深度思考 / 自定义提示词
 │  └─ main/MainActivity.kt             权限引导 + 总开关 + 会话状态 + 入口
 └─ util/
+   ├─ ImagePreview.kt         全屏看题目图（黑底 + 缩放 + 关闭按钮）
+   ├─ ZoomImageView.kt        双指/双击缩放、放大后拖动、边界回弹（不引 photoview）
    ├─ MathTextRenderer.kt     **公式渲染的核心**：整段 Markwon 管 markdown，公式换 token → jlatexmath ImageSpan（详见 §9 踩坑）
    └─ DisplayUtils.kt         屏幕尺寸（用 maximumWindowMetrics，保证等于整屏）
 ```
@@ -83,7 +85,13 @@ app/src/main/java/com/fragranstea/screensolve/
 - 渲染细节：markdown 加粗正常（不再出现字面量 `**`）、`$$ / \[ / \( / $` 四种定界符都能渲染、
   超宽公式自动缩放或改块级排版（不再被右边界裁掉）
 - Key 加密落盘（只有密文）；改其它设置保存**不会**覆盖 Key
-- 历史详情 LaTeX 渲染正常；全屏看原图可打开
+- 历史详情 LaTeX 渲染正常；全屏看原图可打开，并支持**双指/双击缩放、放大后拖动**（已验证 2.5 倍放大后居中不偏移）
+- 历史会话视图按聊天气泡排版：**自己问的靠右（浅蓝）、模型答的靠左（白底描边）**（坐标实测：用户气泡 x652-1002，回答气泡 x78-842）
+- **full 版 OCR 通道真机回归**：ML Kit 正常出字（51 字），但**数学公式会丢运算符/上下限**
+  （`(3x²+2x)dx` 被识别成 `(3x 2x) dx`），模型据此给出 20% 置信度的"无法识别"并说明缺什么 —— 行为正确，
+  也印证了"数学题走视觉直传"这个默认选择是对的
+- release 签名：`assembleLiteRelease` / `assembleFullRelease` 均为 V2 签名（CN=ScreenSolve），
+  lite 1.48 MB / full 15.2 MB
 - lite release 1.46 MB / full release 14.5 MB（差异只有 ML Kit）
 
 ### 已知问题（按优先级）
@@ -159,7 +167,12 @@ export ANDROID_HOME=/opt/android-sdk
 cd ~/dsh-workspace/ScreenSolve
 ./gradlew assembleLiteDebug        # 默认版本（只视觉）
 ./gradlew assembleFullDebug        # 含离线 OCR
-./gradlew assembleLiteRelease      # 1.46 MB
+./gradlew assembleLiteRelease      # 1.48 MB（已签名）
+
+# release 签名：仓库根部的 keystore.properties + keystore/ 一起决定（两者都不进 git）
+# 缺失时 release 包不签名，但依然能编译 —— 换个机器 clone 下来不会卡住
+# 证书备份在 Windows 侧：C:\Users\FragransTea\ScreenSolve-签名备份\
+# 丢了它就只能换包名重发（老用户数据全丢），务必留好
 ```
 - **AGP 9.4.0 + Gradle 9.7.1（≥9.6 硬要求）+ 内置 Kotlin**：不要再声明 `org.jetbrains.kotlin.android`
 - `build.gradle.kts` 里 `abiFilters = arm64-v8a`：ML Kit 每个 ABI 带 10MB 级原生库，不裁会飙到 54MB
@@ -246,10 +259,17 @@ cp app/build/outputs/apk/lite/debug/app-lite-debug.apk /mnt/c/Users/FragransTea/
 - 排版收敛：宽公式用 markdown 硬换行（不再分段）并吸收紧跟的纯标点，
   消掉了"公式后面孤零零一个句号"和"公式后突然一大块空白"。
 
+### 已完成（M5 收尾这一轮，真机验证）
+- 全屏看题图支持缩放：`util/ZoomImageView`（双指/双击、放大后拖动、边界回弹）+ `util/ImagePreview`
+  （黑底、顶部提示条、右上角关闭按钮 —— 放大后单击不关闭，必须留显式出口）
+- 答案区公式按 0.85 倍渲染（追问回复 0.92），不再"抢戏"
+- 历史会话里追问按气泡排版：问在右、答在左
+- release 签名链路打通；`full` 版 OCR 通道回归完成（结论见 §4）
+
 ### 下一个里程碑（M6 候选）
-- 全屏原图支持双指缩放
-- 答案区公式字号略小（22sp 偏大）
-- 发布准备：release 签名、`full` 版 OCR 通道回归、README 使用说明
+- README 使用说明 + 截图
+- 答案卡片支持"复制为 Markdown/纯文本"两种
+- OCR 通道改为"视觉 + OCR 双通道结果互相校验"（可选，收益不确定，先不做）
 
 ### 不要动的东西
 - `capture/` 的常驻抓帧 + `awaitFrameAfter`（抓帧新鲜度是靠这个保证的）

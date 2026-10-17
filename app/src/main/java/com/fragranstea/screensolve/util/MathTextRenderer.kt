@@ -42,6 +42,9 @@ object MathTextRenderer {
      */
     private const val BLOCK_RATIO = 0.4f
 
+    /** 公式在图上的占位符（U+FFFC 对象替换符，渲染时被 ImageSpan 顶掉） */
+    private const val PLACEHOLDER = "\uFFFC"
+
     /** 独占一行的大公式后面允许被"吃掉"的标点（它们本来也挤不下） */
     private const val TRAILING_PUNCT = "，。、；：,.;:"
 
@@ -91,7 +94,6 @@ object MathTextRenderer {
                 .firstOrNull { it.isNotEmpty() }
                 .orEmpty()
                 .trim()
-            val index = latexes.size
             val drawable = buildMath(latex, textSizePx, color, maxWidthPx)
             latexes.add(latex)
             drawables.add(drawable)
@@ -101,15 +103,15 @@ object MathTextRenderer {
             var next = match.range.last + 1
 
             when {
-                explicitBlock -> builder.append("\n\n@@MATH$index@@\n\n")
+                explicitBlock -> builder.append("\n\n$PLACEHOLDER\n\n")
                 wideInline -> {
                     // 公式占满一整行了，紧跟的纯标点（，。、；：）挤不下会掉到下一行单独成行，
                     // 视觉上非常难看，这里直接并进公式行一起处理掉（不再单独渲染）
                     while (next < raw.length && raw[next] in TRAILING_PUNCT) next++
-                    builder.append("  \n@@MATH$index@@  \n")
+                    builder.append("  \n$PLACEHOLDER  \n")
                 }
 
-                else -> builder.append("@@MATH$index@@")
+                else -> builder.append(PLACEHOLDER)
             }
             cursor = next
         }
@@ -119,20 +121,27 @@ object MathTextRenderer {
         // 2) 整段 markdown 化（关键：不再分段）
         val out = SpannableStringBuilder(markwon.toMarkdown(prepared))
 
-        // 3) token → 公式图片
+        // 3) 占位符 → 公式图片
+        //
+        // 占位符用 U+FFFC（对象替换符）而不是 "@@MATH0@@"：图片是画上去的，
+        // 但底层文字还在 —— 用可读字符串会在无障碍朗读、uiautomator 里露出 "@@MATH0@@"。
+        // 占位符按出现顺序对应之前的公式列表，所以顺序取下标即可。
+        var searchFrom = 0
         latexes.forEachIndexed { index, latex ->
-            val token = "@@MATH$index@@"
-            val start = out.indexOf(token)
+            val start = out.indexOf(PLACEHOLDER, searchFrom)
             if (start < 0) return@forEachIndexed
+            searchFrom = start + 1
 
+            // 注意：不能用 ArrayList.removeFirst() —— 那是 Java 21 的 SequencedCollection 方法，
+            // 编译期没问题，Android 运行时直接 NoSuchMethodError（踩过一次）。
             val drawable = drawables[index]
             if (drawable == null) {
-                out.replace(start, start + token.length, latex)   // 画不出来就保留源码
+                out.replace(start, start + 1, latex)   // 画不出来就保留源码
             } else {
                 out.setSpan(
                     ImageSpan(drawable, ImageSpan.ALIGN_BASELINE),
                     start,
-                    start + token.length,
+                    start + 1,
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE,
                 )
             }
@@ -141,8 +150,18 @@ object MathTextRenderer {
         view.text = out
     }
 
+    /**
+     * 模型偶尔会写出 `\dx` / `\dy` 这种"半个命令"（想写 `\,dx` 时手抖），
+     * jlatexmath 遇到未知命令直接抛异常，公式就退化成源码。
+     * 这种情况只用补一个反斜杠的反义：把 `\dX`（X 是单个字母）还原成 `dX`，
+     * 别去动 `\dfrac`、`\delta` 这类合法长命令。
+     */
+    private val BAD_D_COMMAND = Regex("\\\\d([a-zA-Z])(?![a-zA-Z])")
+
+    private fun sanitize(latex: String): String = latex.replace(BAD_D_COMMAND) { m -> "d" + m.groupValues[1] }
+
     private fun buildMath(latex: String, textSizePx: Float, color: Int, maxWidthPx: Int): Drawable? = try {
-        val inner = JLatexMathDrawable.builder(latex)
+        val inner = JLatexMathDrawable.builder(sanitize(latex))
             .textSize(textSizePx)
             .color(color)
             .padding(4)

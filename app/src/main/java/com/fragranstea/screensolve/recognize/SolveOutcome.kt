@@ -65,6 +65,28 @@ data class Answer(
     /** 置信度偏低时提示用户核对题干。 */
     val lowConfidence: Boolean get() = !plainText && confidence in 0.0..0.55
 
+    /**
+     * 多轮追问里"一条回复"的文本（存历史、渲染气泡都用它）。
+     *
+     * 和 [toPlainText] 的区别：追问回复不需要再回显题目 ——
+     * 提问已经单独成一条气泡了，回答里再写一遍"题目：xxx 答案：xxx"是重复的。
+     */
+    fun toReplyText(): String = buildString {
+        if (plainText) {
+            append(answer)
+            return@buildString
+        }
+        append(answer)
+        if (steps.isNotEmpty()) {
+            appendLine()
+            steps.forEachIndexed { index, step -> appendLine("${index + 1}. $step") }
+        }
+        if (conclusion.isNotBlank()) {
+            appendLine()
+            append(conclusion)
+        }
+    }.trim()
+
     /** 复制到剪贴板/分享用的纯文本。 */
     fun toPlainText(): String = buildString {
         // 追问回复本身就是一段完整的话，不需要再加"答案："这种前缀

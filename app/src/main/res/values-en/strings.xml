@@ -120,4 +120,5 @@
     <string name="history_missing">That record is gone</string>
     <string name="conversation_image_missing">No stored question image, cannot follow up</string>
     <string name="conversation_failed">Follow-up failed: %1$s</string>
+    <string name="image_zoom_hint">Pinch or double-tap to zoom, tap to close</string>
 </resources>

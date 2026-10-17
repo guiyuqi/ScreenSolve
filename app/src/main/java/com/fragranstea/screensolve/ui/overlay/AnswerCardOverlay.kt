@@ -139,7 +139,7 @@ class AnswerCardOverlay(
         // 注意：setTypeface(当前粗体实例, NORMAL) 在部分 ROM 上不会真的变细，
         // 直接换成 DEFAULT / DEFAULT_BOLD 才可靠。
         answerView?.typeface = if (asReply) Typeface.DEFAULT else Typeface.DEFAULT_BOLD
-        render(answerView, answer.answer)
+        render(answerView, answer.answer, mathScale = if (asReply) 0.92f else 0.85f)
 
         stepsContainer?.removeAllViews()
         answer.steps.forEachIndexed { index, step ->
@@ -216,7 +216,12 @@ class AnswerCardOverlay(
      * 渲染 markdown/LaTeX 到 TextView。
      * 解析失败时退回纯文本 —— 公式画不出来也不能让用户看到空白。
      */
-    private fun render(view: TextView?, markdown: String) {
+    /**
+     * @param mathScale 公式相对正文的缩放。答案区正文是 22sp 的粗体，
+     *   公式按同字号画出来会比汉字"抢戏"（jlatexmath 的字面比汉字大一号），
+     *   所以那里用 0.85 倍，正文和公式看起来才是一个层次。
+     */
+    private fun render(view: TextView?, markdown: String, mathScale: Float = 1f) {
         if (view == null) return
         val raw = markdown.trim()
         if (raw.isEmpty()) {
@@ -229,7 +234,14 @@ class AnswerCardOverlay(
             val contentWidth = view.width - view.paddingLeft - view.paddingRight
             val maxWidth = contentWidth.takeIf { it > 0 }
                 ?: (DisplayUtils.screenBounds(context).width() * 0.78f).toInt()
-            MathTextRenderer.render(markwon, view, raw, view.textSize, view.currentTextColor, maxWidth)
+            MathTextRenderer.render(
+                markwon,
+                view,
+                raw,
+                view.textSize * mathScale,
+                view.currentTextColor,
+                maxWidth,
+            )
         } catch (t: Throwable) {
             Log.e("AnswerCard", "渲染失败，回退纯文本: ${raw.take(80)}", t)
             view.text = raw

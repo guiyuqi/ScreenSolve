@@ -487,7 +487,7 @@ class OverlayService :
                         historyStore.appendTurn(
                             activeHistoryId,
                             question,
-                            outcome.answer.toPlainText(),
+                            outcome.answer.toReplyText(),
                         )
                     }
                 }

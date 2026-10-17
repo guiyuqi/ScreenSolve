@@ -1,5 +1,19 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
+}
+
+/**
+ * release 签名配置从仓库根部的 keystore.properties 读（该文件与 keystore/ 都不进 git）。
+ * 没有这个文件时 release 包不签名 —— CI 或别人 clone 下来照样能编译，只是出不了可发布包。
+ */
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        FileInputStream(keystorePropertiesFile).use { load(it) }
+    }
 }
 
 android {
@@ -10,8 +24,8 @@ android {
         applicationId = "com.fragranstea.screensolve"
         minSdk = 29
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.5.0-m4"
+        versionCode = 6
+        versionName = "0.6.0-m5"
 
         // 只保留真机需要的 ABI（ML Kit 会给每个 ABI 各带一份 10MB 级原生库）
         ndk {
@@ -40,8 +54,23 @@ android {
         }
     }
 
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // 有 keystore.properties 就签，没有就留空（不挡住编译）
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

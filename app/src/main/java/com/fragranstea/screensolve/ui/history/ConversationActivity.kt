@@ -1,8 +1,8 @@
 package com.fragranstea.screensolve.ui.history
 
-import android.app.Dialog
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputType
 import android.util.Log
@@ -27,6 +27,7 @@ import com.fragranstea.screensolve.recognize.SolveEngine
 import com.fragranstea.screensolve.recognize.SolveOutcome
 import com.fragranstea.screensolve.recognize.SolveSession
 import com.fragranstea.screensolve.util.DisplayUtils
+import com.fragranstea.screensolve.util.ImagePreview
 import com.fragranstea.screensolve.util.MathTextRenderer
 import io.noties.markwon.Markwon
 
@@ -203,8 +204,66 @@ class ConversationActivity : AppCompatActivity() {
     }
 
     private fun addTurn(turn: HistoryTurn) {
-        addSection(R.string.conversation_label_ask, turn.question, muted = true)
-        addSection(R.string.answer_label_reply, turn.answer)
+        addBubble(turn.question, fromUser = true)
+        addBubble(turn.answer, fromUser = false)
+    }
+
+    /**
+     * 一轮追问的两条气泡。
+     *
+     * 按聊天习惯排：**我问的靠右**（浅蓝），**模型答的靠左**（白底）。
+     * 这样翻历史时"谁说的"一眼就分得清，不用读小标题。
+     */
+    private fun addBubble(text: String, fromUser: Boolean) {
+        if (text.isBlank()) return
+        val maxBubbleWidth = (DisplayUtils.screenBounds(this).width() * 0.78f).toInt()
+
+        val body = TextView(this).apply {
+            textSize = 15f
+            setTextColor(0xFF222222.toInt())
+            setLineSpacing(5f * density, 1f)
+            setPadding(dp(12), dp(9), dp(12), dp(9))
+            maxWidth = maxBubbleWidth - dp(26)   // 长文本自动换行，短文本保持气泡收缩
+            isClickable = true
+            isLongClickable = true
+            setOnLongClickListener {
+                copyText(text)
+                true
+            }
+        }
+        MathTextRenderer.render(
+            markwon,
+            body,
+            text,
+            body.textSize,
+            body.currentTextColor,
+            maxBubbleWidth - dp(28),
+        )
+
+        val bubble = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat()
+                setColor(if (fromUser) BUBBLE_USER_COLOR else BUBBLE_AI_COLOR)
+                if (!fromUser) setStroke(dp(1), BUBBLE_AI_STROKE)
+            }
+            setPadding(dp(12), dp(9), dp(12), dp(9))
+        }
+        bubble.addView(body, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = if (fromUser) Gravity.END else Gravity.START
+            setPadding(0, dp(6), 0, 0)
+        }
+        row.addView(bubble, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        content.addView(row, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+    }
+
+    private fun copyText(text: String) {
+        val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("screensolve", text))
+        Toast.makeText(this, R.string.answer_copied, Toast.LENGTH_SHORT).show()
     }
 
     /**
@@ -262,13 +321,7 @@ class ConversationActivity : AppCompatActivity() {
 
         input.setText("")
         setBusy(true)
-        val askView = TextView(this).apply {
-            text = question
-            textSize = 15f
-            setTextColor(0xFF555555.toInt())
-            setPadding(0, dp(10), 0, dp(2))
-        }
-        content.addView(askView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        addBubble(question, fromUser = true)
         addThinking()
         scrollDown()
 
@@ -370,17 +423,7 @@ class ConversationActivity : AppCompatActivity() {
 
     private fun showFullImage() {
         val file = entry?.let { store.imageFile(it) } ?: return
-        val bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return
-        val dialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
-        dialog.setContentView(
-            ImageView(this).apply {
-                setImageBitmap(bitmap)
-                scaleType = ImageView.ScaleType.FIT_CENTER
-                setBackgroundColor(Color.BLACK)
-                setOnClickListener { dialog.dismiss() }
-            },
-        )
-        dialog.show()
+        ImagePreview.show(this, file)
     }
 
     private fun dp(value: Int): Int = (value * density).toInt()
@@ -388,6 +431,11 @@ class ConversationActivity : AppCompatActivity() {
     companion object {
         /** 打开会话视图时传历史记录 id */
         const val EXTRA_ENTRY_ID = "entry_id"
+
+        /** 气泡配色：自己问的浅蓝靠右，模型答的白底靠左 */
+        private const val BUBBLE_USER_COLOR = 0xFFDCEBFF.toInt()
+        private const val BUBBLE_AI_COLOR = 0xFFFFFFFF.toInt()
+        private const val BUBBLE_AI_STROKE = 0xFFE3E3E3.toInt()
 
         private const val TAG = "Conversation"
         private const val MATCH_PARENT = ViewGroup.LayoutParams.MATCH_PARENT

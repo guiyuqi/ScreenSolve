@@ -93,9 +93,11 @@ app/src/main/java/com/fragranstea/screensolve/
 - R8 keep 规则（`app/proguard-rules.pro`）：jlatexmath / Markwon 整包保留不混淆 ——
   它们靠类名与 assets 里的字体名工作，混淆后公式会画不出来。代价是 lite release 从 1.48 → 1.79 MB，
   这个交换值得：公式渲染是核心功能，300 KB 换"一定不炸"。
-- release 包做过冒烟验证（`-PsmokeTest` 加 `.smoke` 包名后缀，与 debug 包共存）：
-  R8 混淆后的 release 包能正常启动、主界面渲染正常。**但"识题→渲染"整链路要 API Key，
-  换签名会卸载旧包、清掉已存 Key，所以真机全链路验证需要重新粘一次 Key。**
+- **release 包真机全链路已验证**（lite 1.79 MB，V2 签名，R8 混淆）：
+  识题成功 answer=2 / 置信度 99%，题干与解析里的公式全部正常渲染（说明 keep 规则有效，没被裁没被改名）、
+  追问回复（"追问回复"标题 + 正常字重 + 公式）正常、历史会话视图气泡正常
+  （实测提问气泡 `x 391–1002` 靠右、回答气泡 `x 78–842` 靠左）、全屏题图缩放正常。
+- 冒烟开关 `-PsmokeTest`（包名加 `.smoke` 后缀）保留，用于"不卸载 debug 包"验证 R8 后能否启动。
 - release 签名：`assembleLiteRelease` / `assembleFullRelease` 均为 V2 签名（CN=ScreenSolve），
   最终体积 **lite 1.79 MB / full 16.2 MB**（差额全在 ML Kit）
 
@@ -103,7 +105,9 @@ app/src/main/java/com/fragranstea/screensolve/
 1. **多题同屏会降低质量**。选区提示已加"建议只框一道题"，提示词要求多题时只答最完整的一道。
 2. **full 版 OCR 对数学公式识别率低**（见上），别把它当数学题主通道；它的价值在"不发原图、省 token"。
 3. 排版打磨：极少数情况下公式后的"。"仍会单独占一行（宽公式已改硬换行 + 吸收纯标点，多数场景已解决）。
-4. **debug ↔ release 不能覆盖安装**（签名不同），切换必须 `adb uninstall`，
+4. 公式行高：`ImageSpan(ALIGN_BASELINE)` 不会为 `bounds.top>=0` 的图片扩行高，单行答案（如「2」）顶部会被裁；
+   现已改用自绘 `BaselineMathSpan`（getSize 里把 `fm.ascent/top` 压到 `-图片高度`）。
+5. **debug ↔ release 不能覆盖安装**（签名不同），切换必须 `adb uninstall`，
    会清掉已存 API Key 与历史 —— Android 机制，不是 bug。
 
 ---

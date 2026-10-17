@@ -11,7 +11,7 @@
 仓库：`github.com/guiyuqi/ScreenSolve`（SSH 走 Windows 代理推送，见 §6）。
 
 **用户偏好（重要）**
-- 体积要小、启动要快 → 已拆 lite/full 双版本，默认 lite（release **1.37 MB**）
+- 体积要小、启动要快 → 已拆 lite/full 双版本，默认 lite（release **1.46 MB**）
 - 答案要**严格 LaTeX + 端上渲染**，参考 latexlive.com 的效果
 - 历史记录**连题目图一起存本地**（不上传）
 - 提问界面希望都在**悬浮卡片**里完成（不要在多个页面间跳）
@@ -159,7 +159,7 @@ export ANDROID_HOME=/opt/android-sdk
 cd ~/dsh-workspace/ScreenSolve
 ./gradlew assembleLiteDebug        # 默认版本（只视觉）
 ./gradlew assembleFullDebug        # 含离线 OCR
-./gradlew assembleLiteRelease      # 1.37 MB
+./gradlew assembleLiteRelease      # 1.46 MB
 ```
 - **AGP 9.4.0 + Gradle 9.7.1（≥9.6 硬要求）+ 内置 Kotlin**：不要再声明 `org.jetbrains.kotlin.android`
 - `build.gradle.kts` 里 `abiFilters = arm64-v8a`：ML Kit 每个 ABI 带 10MB 级原生库，不裁会飙到 54MB

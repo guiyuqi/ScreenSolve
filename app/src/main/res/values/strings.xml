@@ -128,4 +128,13 @@
     <string name="history_answer_prefix">答案：%1$s</string>
     <string name="main_btn_history">历史记录（最近 10 次）</string>
     <string name="history_view_image">查看题目图</string>
-    <string name="answer_follow_up_hint">接着问点什么…（例如：第二步再讲讲）</string>\n    <string name="answer_follow_up_send">追问</string>\n</resources>
+    <string name="answer_follow_up_hint">接着问点什么…（例如：第二步再讲讲）</string>
+    <string name="answer_follow_up_send">追问</string>
+    <!-- M5：历史会话视图 -->
+    <string name="conversation_title">题目会话</string>
+    <string name="conversation_back">返回</string>
+    <string name="conversation_label_ask">再问</string>
+    <string name="history_missing">这条记录已经不在了</string>
+    <string name="conversation_image_missing">这条记录没有存题目图，无法继续追问</string>
+    <string name="conversation_failed">追问失败：%1$s</string>
+</resources>

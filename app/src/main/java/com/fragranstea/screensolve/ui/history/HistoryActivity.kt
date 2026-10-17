@@ -1,8 +1,7 @@
 package com.fragranstea.screensolve.ui.history
 
-import android.app.Dialog
+import android.content.Intent
 import android.graphics.BitmapFactory
-import android.graphics.Color
 import android.os.Bundle
 import android.text.TextUtils
 import android.view.View
@@ -10,7 +9,6 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -18,8 +16,6 @@ import com.fragranstea.screensolve.R
 import com.fragranstea.screensolve.data.HistoryEntry
 import com.fragranstea.screensolve.data.HistoryStore
 import com.fragranstea.screensolve.util.DisplayUtils
-import com.fragranstea.screensolve.util.MathTextRenderer
-import io.noties.markwon.Markwon
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -39,8 +35,6 @@ class HistoryActivity : AppCompatActivity() {
     private lateinit var store: HistoryStore
     private lateinit var container: LinearLayout
     private lateinit var emptyView: TextView
-
-    private val markwon: Markwon by lazy { Markwon.create(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -92,16 +86,13 @@ class HistoryActivity : AppCompatActivity() {
                 val options = BitmapFactory.Options().apply { inSampleSize = 4 }
                 BitmapFactory.decodeFile(file.absolutePath, options)?.let { setImageBitmap(it) }
             }
-            if (store.imageFile(entry) != null) {
-                setOnClickListener { showImage(entry) }
-            }
+            setOnClickListener { openConversation(entry) }
         }
 
         val texts = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             val pad = (12 * density).toInt()
             setPadding(pad, 0, 0, 0)
-            setOnClickListener { showDetail(entry) }
         }
         val title = TextView(this).apply {
             text = plain(entry.question.ifBlank { entry.answer })
@@ -131,7 +122,7 @@ class HistoryActivity : AppCompatActivity() {
 
         row.addView(thumb)
         row.addView(texts, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-        row.setOnClickListener { showDetail(entry) }
+        row.setOnClickListener { openConversation(entry) }
         return row
     }
 
@@ -143,70 +134,17 @@ class HistoryActivity : AppCompatActivity() {
         .replace(Regex("\\s+"), " ")
         .trim()
 
-    private fun showDetail(entry: HistoryEntry) {
-        val body = buildString {
-            if (entry.question.isNotBlank()) {
-                appendLine(getString(R.string.answer_label_question))
-                appendLine(entry.question)
-                appendLine()
-            }
-            appendLine(getString(R.string.answer_label_answer))
-            appendLine(entry.answer)
-            if (entry.steps.isNotEmpty()) {
-                appendLine()
-                appendLine(getString(R.string.answer_label_steps))
-                entry.steps.forEachIndexed { index, step -> appendLine("${index + 1}. $step") }
-            }
-            if (entry.conclusion.isNotBlank()) {
-                appendLine()
-                append(entry.conclusion)
-            }
-        }
-
-        val pad = (20 * DisplayUtils.density(this)).toInt()
-        val detailView = TextView(this).apply {
-            textSize = 14f
-            setPadding(pad, 16, pad, 16)
-            setLineSpacing(6f * DisplayUtils.density(this@HistoryActivity), 1f)
-        }
-        MathTextRenderer.render(
-            markwon,
-            detailView,
-            body,
-            detailView.textSize,
-            detailView.currentTextColor,
-            (DisplayUtils.screenBounds(this).width() * 0.78f).toInt(),
+    /**
+     * 打开会话视图。
+     *
+     * 以前是弹窗，两个毛病：看图会把弹窗顶掉、回来又落回列表；而且没地方继续追问。
+     * 现在整条记录的"看图 + 读答案 + 接着问"都在 [ConversationActivity] 里。
+     */
+    private fun openConversation(entry: HistoryEntry) {
+        startActivity(
+            Intent(this, ConversationActivity::class.java)
+                .putExtra(ConversationActivity.EXTRA_ENTRY_ID, entry.id),
         )
-
-        val scroll = ScrollView(this).apply {
-            addView(detailView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        }
-
-        val builder = AlertDialog.Builder(this)
-            .setTitle(R.string.history_detail)
-            .setView(scroll)
-            .setPositiveButton(R.string.history_cancel_ok, null)
-        // 缩略图点击会被整行点击吃掉，所以把"看图"做成弹窗里的显式按钮，命中率 100%
-        if (store.imageFile(entry) != null) {
-            builder.setNeutralButton(R.string.history_view_image) { _, _ -> showImage(entry) }
-        }
-        builder.show()
-    }
-
-    /** 全屏看原图：点任意处关闭。 */
-    private fun showImage(entry: HistoryEntry) {
-        val file = store.imageFile(entry) ?: return
-        val bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return
-
-        val dialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
-        val imageView = ImageView(this).apply {
-            setImageBitmap(bitmap)
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            setBackgroundColor(Color.BLACK)
-            setOnClickListener { dialog.dismiss() }
-        }
-        dialog.setContentView(imageView)
-        dialog.show()
     }
 
     private companion object {

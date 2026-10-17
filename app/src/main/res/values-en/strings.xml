@@ -111,4 +111,13 @@
     <string name="history_answer_prefix">Answer: %1$s</string>
     <string name="main_btn_history">History (last 10)</string>
     <string name="history_view_image">View question image</string>
-    <string name="answer_follow_up_hint">Ask a follow-up…</string>\n    <string name="answer_follow_up_send">Ask</string>\n</resources>
+    <string name="answer_follow_up_hint">Ask a follow-up…</string>
+    <string name="answer_follow_up_send">Ask</string>
+    <!-- M5: history conversation view -->
+    <string name="conversation_title">Question session</string>
+    <string name="conversation_back">Back</string>
+    <string name="conversation_label_ask">Asked</string>
+    <string name="history_missing">That record is gone</string>
+    <string name="conversation_image_missing">No stored question image, cannot follow up</string>
+    <string name="conversation_failed">Follow-up failed: %1$s</string>
+</resources>

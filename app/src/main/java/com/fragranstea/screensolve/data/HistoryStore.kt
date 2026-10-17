@@ -7,6 +7,18 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
+/**
+ * 一轮追问。
+ *
+ * [answer] 存**展示用文本**（可能是一段 markdown）：从历史里继续聊的时候要把它回放给模型，
+ * 展示文本足够表达上下文，没必要为了这一点把原始 JSON 也存下来。
+ */
+data class HistoryTurn(
+    val question: String,
+    val answer: String,
+    val createdAt: Long,
+)
+
 /** 一条历史记录（题目图只存本地文件名，不上传任何地方）。 */
 data class HistoryEntry(
     val id: Long,
@@ -19,6 +31,8 @@ data class HistoryEntry(
     val knowledgePoints: List<String>,
     val confidence: Double,
     val imageFileName: String?,
+    /** M5：这张卡片的追问历史（首轮问答在其它字段里，这里只存追问） */
+    val turns: List<HistoryTurn> = emptyList(),
 )
 
 /**
@@ -74,6 +88,31 @@ class HistoryStore(context: Context) {
         }
     }
 
+    /**
+     * M5：给某条记录追加一轮追问。
+     *
+     * 追问是不断累积的，所以每次都要重写整份索引；历史最多 10 条、每条约几 KB，
+     * 这个代价可以接受（换成 SQLite 才划算）。
+     */
+    fun appendTurn(entryId: Long, question: String, answer: String): HistoryEntry? {
+        return try {
+            val entries = loadEntries().toMutableList()
+            val index = entries.indexOfFirst { it.id == entryId }
+            if (index < 0) return null
+            val updated = entries[index].copy(
+                turns = entries[index].turns + HistoryTurn(question, answer, System.currentTimeMillis()),
+            )
+            entries[index] = updated
+            writeIndex(entries)
+            updated
+        } catch (t: Throwable) {
+            Log.w(TAG, "追加追问失败", t)
+            null
+        }
+    }
+
+    fun entry(id: Long): HistoryEntry? = loadEntries().firstOrNull { it.id == id }
+
     /** 最近的历史，新的在前。 */
     fun entries(): List<HistoryEntry> = loadEntries()
 
@@ -125,6 +164,7 @@ class HistoryStore(context: Context) {
         knowledgePoints = obj.optJSONArray("knowledgePoints").toStringList(),
         confidence = obj.optDouble("confidence", 0.0),
         imageFileName = obj.optString("imageFileName").takeIf { it.isNotBlank() },
+        turns = obj.optJSONArray("turns").toTurns(),
     )
 
     private fun toJson(entry: HistoryEntry): JSONObject = JSONObject().apply {
@@ -138,6 +178,27 @@ class HistoryStore(context: Context) {
         put("knowledgePoints", JSONArray(entry.knowledgePoints))
         put("confidence", entry.confidence)
         put("imageFileName", entry.imageFileName.orEmpty())
+        put("turns", JSONArray().apply {
+            entry.turns.forEach { turn ->
+                put(JSONObject().apply {
+                    put("question", turn.question)
+                    put("answer", turn.answer)
+                    put("createdAt", turn.createdAt)
+                })
+            }
+        })
+    }
+
+    private fun JSONArray?.toTurns(): List<HistoryTurn> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index ->
+            val obj = optJSONObject(index) ?: return@mapNotNull null
+            HistoryTurn(
+                question = obj.optString("question"),
+                answer = obj.optString("answer"),
+                createdAt = obj.optLong("createdAt"),
+            )
+        }
     }
 
     private fun JSONArray?.toStringList(): List<String> {

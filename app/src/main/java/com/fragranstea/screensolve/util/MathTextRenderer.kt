@@ -42,6 +42,9 @@ object MathTextRenderer {
      */
     private const val BLOCK_RATIO = 0.4f
 
+    /** 独占一行的大公式后面允许被"吃掉"的标点（它们本来也挤不下） */
+    private const val TRAILING_PUNCT = "，。、；：,.;:"
+
     /** 组 1=$$块级 2=\[块级 3=\(行内 4=$行内 */
     private val MATH = Regex(
         "\\$\\$([\\s\\S]+?)\\$\\$" +
@@ -69,12 +72,20 @@ object MathTextRenderer {
         }
 
         // 1) 抽出数学片段，正文留 token。
-        //    排到"整行宽的 55% 以上"的行内公式也按块级处理：
-        //    这种公式一旦跟在文字后面，Android 的换行常常把它顶出控件右边界被裁掉，
-        //    顺势还会把紧跟的句号挤到下一行单独成行。让它独占一段就都解决了。
+        //
+        // 三条排版规则（都是真机上踩出来的）：
+        // - 模型自己写了 $$..$$ / \[..\] 的公式：独占一段
+        // - 行内公式宽过整行的 BLOCK_RATIO：也让它独占一行，否则 Android 会把它顶出控件右边界裁掉
+        // - 独占一行时用 markdown 硬换行（行尾两个空格）而不是分段，
+        //   否则紧跟的"，/。"会被顶成独立段落，中间出现一大块空白
         val latexes = ArrayList<String>()
         val drawables = ArrayList<Drawable?>()
-        val prepared = MATH.replace(raw) { match ->
+        val builder = StringBuilder()
+        var cursor = 0
+
+        for (match in MATH.findAll(raw)) {
+            builder.append(raw, cursor, match.range.first)
+
             val latex = (1..4)
                 .map { match.groupValues[it] }
                 .firstOrNull { it.isNotEmpty() }
@@ -85,13 +96,25 @@ object MathTextRenderer {
             latexes.add(latex)
             drawables.add(drawable)
 
-            val block = match.value.startsWith("$$") ||
-                match.value.startsWith("\\[") ||
-                (maxWidthPx > 0 && (drawable?.intrinsicWidth ?: 0) > maxWidthPx * BLOCK_RATIO)
-            // 必须是两个换行：markdown 里单个 \n 是软换行（渲染成空格），
-            // 公式会和后面的文字挤在同一行上。
-            if (block) "\n\n@@MATH$index@@\n\n" else "@@MATH$index@@"
+            val explicitBlock = match.value.startsWith("$$") || match.value.startsWith("\\[")
+            val wideInline = maxWidthPx > 0 && (drawable?.intrinsicWidth ?: 0) > maxWidthPx * BLOCK_RATIO
+            var next = match.range.last + 1
+
+            when {
+                explicitBlock -> builder.append("\n\n@@MATH$index@@\n\n")
+                wideInline -> {
+                    // 公式占满一整行了，紧跟的纯标点（，。、；：）挤不下会掉到下一行单独成行，
+                    // 视觉上非常难看，这里直接并进公式行一起处理掉（不再单独渲染）
+                    while (next < raw.length && raw[next] in TRAILING_PUNCT) next++
+                    builder.append("  \n@@MATH$index@@  \n")
+                }
+
+                else -> builder.append("@@MATH$index@@")
+            }
+            cursor = next
         }
+        builder.append(raw, cursor, raw.length)
+        val prepared = builder.toString()
 
         // 2) 整段 markdown 化（关键：不再分段）
         val out = SpannableStringBuilder(markwon.toMarkdown(prepared))

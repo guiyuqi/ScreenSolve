@@ -74,6 +74,12 @@ class OverlayService :
 
     /** 当前会话（M5 多轮追问的上下文）；新一次识题会替换它。 */
     private var activeSession: SolveSession? = null
+
+    /**
+     * 当前这张卡片对应的历史记录 id（0 = 还没有落库）。
+     * 追问成功后要往同一条记录里追加，所以必须记住它。
+     */
+    private var activeHistoryId: Long = 0L
     private lateinit var solveEngine: SolveEngine
 
     /** 用户点悬浮球时若还没有会话，授权完成之后要把这次抓帧继续做完。 */
@@ -184,6 +190,7 @@ class OverlayService :
         projectionSession = null
         isSessionActive = false
         activeSession = null
+        activeHistoryId = 0L
         answerCard?.remove()
         answerCard = null
     }
@@ -356,6 +363,8 @@ class OverlayService :
         }
 
         val card = showAnswerCard()
+        // 新的一次框选＝新的一条历史，旧 id 不能带过来
+        activeHistoryId = 0L
         card.showLoading()
 
         val channel = settingsStore.channel
@@ -428,7 +437,7 @@ class OverlayService :
                     }
                     // 成功后落历史（题目图只存本地，随应用卸载一起消失）
                     activeSession?.appendAssistant(outcome.answer.raw)
-                    historyStore.save(jpeg, outcome.answer)
+                    activeHistoryId = historyStore.save(jpeg, outcome.answer)?.id ?: 0L
                 }
                 is SolveOutcome.Failure -> Log.w(TAG, "识题失败 error=${outcome.error} detail=${outcome.detail}")
             }
@@ -473,6 +482,14 @@ class OverlayService :
                 is SolveOutcome.Success -> {
                     session.appendAssistant(outcome.answer.raw)
                     Log.i(TAG, "追问成功 answer=${outcome.answer.answer.take(60)}")
+                    // 追问也要留在历史里，否则关掉卡片这段解释就没了
+                    if (activeHistoryId != 0L) {
+                        historyStore.appendTurn(
+                            activeHistoryId,
+                            question,
+                            outcome.answer.toPlainText(),
+                        )
+                    }
                 }
                 is SolveOutcome.Failure -> Log.w(TAG, "追问失败 error=${outcome.error}")
             }

@@ -69,6 +69,13 @@
             android:exported="false"
             android:label="@string/history_title" />
 
+        <!-- 历史 → 会话视图：看图、复制、接着追问 -->
+        <activity
+            android:name=".ui.history.ConversationActivity"
+            android:exported="false"
+            android:label="@string/conversation_title"
+            android:windowSoftInputMode="adjustResize" />
+
         <activity
             android:name=".ui.settings.SettingsActivity"
             android:exported="false"

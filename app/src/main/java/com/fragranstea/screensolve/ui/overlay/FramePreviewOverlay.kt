@@ -33,8 +33,8 @@ class FramePreviewOverlay(
 
     private var root: View? = null
 
-    fun show(bitmap: Bitmap, frameIndex: Long, fresh: Boolean) {
-        remove()
+    fun show(bitmap: Bitmap, frameIndex: Long, fresh: Boolean, bubbleOnRight: Boolean) {
+        detach()   // 注意：不能用 remove()，否则会触发 onClosed 清空宿主的引用
 
         val bounds = DisplayUtils.screenBounds(context)
         val card = LinearLayout(context).apply {
@@ -72,14 +72,21 @@ class FramePreviewOverlay(
         card.addView(image, LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
         card.addView(close, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
 
+        // 宽度只占 72%，并停靠在悬浮球的**另一侧**：
+        // 之前用 86% 居中，实测会盖住悬浮球，用户想"再抓一次"时点到的其实是卡片。
+        val cardWidth = (bounds.width() * 0.72f).toInt()
+        val cardHeight = (bounds.height() * 0.55f).toInt()
+        val margin = DisplayUtils.dp(context, 12)
+
         val params = WindowManager.LayoutParams(
-            (bounds.width() * 0.86f).toInt(),
-            (bounds.height() * 0.55f).toInt(),
+            cardWidth,
+            cardHeight,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT,
         ).apply {
-            gravity = Gravity.CENTER
+            gravity = Gravity.CENTER_VERTICAL or (if (bubbleOnRight) Gravity.START else Gravity.END)
+            x = margin
         }
 
         try {
@@ -90,10 +97,21 @@ class FramePreviewOverlay(
         }
     }
 
+    /** 用户主动关闭：移除窗口并通知宿主清掉引用。 */
     fun remove() {
+        detach()
+        onClosed?.invoke()
+    }
+
+    /**
+     * 只移除窗口，**不**通知宿主。
+     *
+     * show() 内部必须用这个而不是 remove()：remove() 会触发 onClosed 把宿主的 preview 引用置空，
+     * 而宿主紧接着要赋新值，结果引用指向 null → 下一次抓帧就没法移除这个窗口，实测会每抓一次泄漏一个悬浮窗。
+     */
+    private fun detach() {
         root?.let { runCatching { windowManager.removeView(it) } }
         root = null
-        onClosed?.invoke()
     }
 
     private companion object {

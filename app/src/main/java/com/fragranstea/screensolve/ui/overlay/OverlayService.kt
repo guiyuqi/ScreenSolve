@@ -294,10 +294,16 @@ class OverlayService :
 
     private fun showPreview(bitmap: Bitmap, frameIndex: Long, fresh: Boolean) {
         preview?.remove()
+
+        // 卡片停靠在悬浮球的另一侧，避免盖住悬浮球（否则用户想再抓一次会点到卡片）
+        val params = bubbleParams
+        val bounds = DisplayUtils.screenBounds(this)
+        val bubbleOnRight = params == null || (params.x + params.width / 2) > bounds.width() / 2
+
         val overlay = FramePreviewOverlay(this, windowManager)
         overlay.onClosed = { if (preview === overlay) preview = null }
         preview = overlay
-        overlay.show(bitmap, frameIndex, fresh)
+        overlay.show(bitmap, frameIndex, fresh, bubbleOnRight)
     }
 
     private fun setBubbleVisible(visible: Boolean) {

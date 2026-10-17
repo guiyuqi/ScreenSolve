@@ -502,6 +502,45 @@ WSL 里没有 USB 直通、也没有 `/dev/kvm`（详见 `ENV_CHECK.md`），所
 
 ---
 
+## 12. 真机验证记录
+
+**测试机**：HONOR `DIO-AN00`，**Android 12 / API 31**，1080×2388 @ 480dpi，arm64-v8a。
+（经 Windows 侧 adb 37.0.1 安装，见 `TOOLCHAIN.md`）
+
+### M1 验收（全部通过）
+| 项 | 结果 |
+|---|---|
+| 悬浮窗权限跳转 | ✅ 点击后进入 `Settings$OverlaySettingsActivity` |
+| 悬浮球显示 | ✅ `ty=APPLICATION_OVERLAY`，`frame=[900,895,1068,1063]`，`visible=true` |
+| 前台服务 + 通知 | ✅ `isForeground=true`、通知 id=1001 已发出 |
+| 总开关 | ✅ 按钮文案与「截屏会话」状态随服务状态实时更新 |
+
+### M2 验收（全部通过）
+| 项 | 结果 / 证据 |
+|---|---|
+| 授权与会话建立 | ✅ `MediaProjectionPermissionActivity` 拉起并完成，`dumpsys media_projection` 显示 `TYPE_SCREEN_CAPTURE` |
+| VirtualDisplay 尺寸 | ✅ 日志 `create Virtual Display [screensolve-capture] 1080x2388`，与屏幕物理分辨率一致 |
+| **一次授权多次抓帧** | ✅ 连续 3 次点击均成功：`frame=1 → 31 → 62`，未再弹授权 |
+| **帧是否新鲜（内容级验证）** | ✅ 滚动主界面 + 静置 8 秒后点击，把预览卡片里渲染的截图抠出（473×1046）缩放回 1080×2388 与点击前真实屏幕逐像素比对：**平均差异 6.91/255（2.7%）**，差异仅来自缩放重采样 → 抓到的就是当前屏幕 |
+| 截图里不含自身悬浮球 | ✅ `fresh=true`（隐藏悬浮球后等到了新帧） |
+| 释放会话 | ✅ `dumpsys media_projection` 变为 `null`，界面显示"未建立" |
+| 释放后重新授权 | ✅ 授权页再次出现，`frame` 从 1 重新开始 |
+| 系统授权框的实际表现 | 本机为 Honor ROM：授权页出现约 0.4~0.5 秒后**自动确认**（未见手动点击）。在原生 Android 上应表现为用户手动点"开始"，需在原生设备上再确认一次 |
+
+### 本轮修掉的 3 个真 bug（都是真机才暴露的）
+1. **持续排空缺失会拿到旧帧** —— 设计阶段已预判并实现（见 §4.2），真机日志 `fresh=true` 证实生效。
+2. **预览卡片遮挡悬浮球** —— 卡片原为 86% 宽居中，正好盖住右侧悬浮球，导致"再抓一次"点在卡片上没反应。改为 72% 宽并停靠在悬浮球的**另一侧**。
+3. **预览窗口泄漏** —— `show()` 里调用 `remove()`，而 `remove()` 会回调 `onClosed` 把宿主的引用置空，结果每次抓帧都残留一个悬浮窗（实测同时存在 2 个卡片）。改为内部 `detach()`（不通知宿主）+ 用户关闭走 `remove()`。修复后连续 3 次抓帧窗口数稳定为 2（悬浮球 + 1 预览）。
+
+### ⚠️ 本机未覆盖、换机需重验的路径
+测试机是 Android 12，以下「仅 Android 13/14+ 生效」的代码路径**未被真机验证**（代码已实现，但没跑过）：
+- Android 14+：`startForeground` 带 `mediaProjection` 类型的**顺序要求**（先 startForeground 再 getMediaProjection）
+- Android 13+：`POST_NOTIFICATIONS` 运行时权限申请
+- Android 15+：部分屏幕共享导致抓帧尺寸小于全屏
+- Android 14+：`getMediaProjection` token 不可复用、必须注册 `MediaProjection.Callback` 的实际表现
+
+---
+
 ## 附：本方案中的关键事实来源
 
 - DeepSeek 视觉能力与传图格式：<https://api-docs.deepseek.com/guides/vision/>

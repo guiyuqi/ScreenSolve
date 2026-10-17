@@ -11,8 +11,11 @@ import org.json.JSONObject
 /**
  * 识题编排：读设置 → 读 Key → 拼请求 → 调接口 → 解析结果。
  *
- * 阻塞执行，**必须放在工作线程**（见 OverlayService 里的处理）。
- * M4 的端侧 OCR 通道会在这里加一个分支：先 OCR 出文本，再把文本发文本模型。
+ * 两条通道共用同一套"请求 → 解析"骨架，只有"用户消息里放什么"不同：
+ * - [solveVision]：把裁剪后的题目图 base64 直传（默认，公式/图形题更准）
+ * - [solveText]：把端侧 OCR 出的文本传过去（省 token、不发原图，弱网也能用）
+ *
+ * 阻塞执行，**必须放在工作线程**。
  */
 class SolveEngine(
     private val settings: SettingsStore,
@@ -21,33 +24,49 @@ class SolveEngine(
 ) {
 
     /** 视觉直传：把裁剪后的题目图直接交给多模态模型。 */
-    fun solveVision(jpeg: ByteArray): SolveOutcome {
+    fun solveVision(jpeg: ByteArray): SolveOutcome = execute(
+        systemPrompt = PromptBuilder.systemPrompt(settings.customPrompt),
+        userContent = JSONArray().apply {
+            put(textPart(PromptBuilder.userInstruction()))
+            put(imagePart(ImagePipeline.toDataUrl(jpeg)))
+        },
+    )
+
+    /**
+     * OCR 通道：端侧识别出题目文本后交给文本模型。
+     * OCR 文本会一并塞进 user 消息，模型据此作答；识别错字导致答错是这个通道的固有风险。
+     */
+    fun solveText(questionText: String): SolveOutcome = execute(
+        systemPrompt = PromptBuilder.systemPromptForText(settings.customPrompt),
+        userContent = JSONArray().apply {
+            put(textPart(PromptBuilder.userInstructionForText(questionText)))
+        },
+    )
+
+    private fun execute(systemPrompt: String, userContent: JSONArray): SolveOutcome {
         val apiKey = keyStore.load()
         if (apiKey.isNullOrBlank()) return SolveOutcome.Failure(SolveError.NO_API_KEY)
 
         val thinking = settings.deepThinking
         val body = JSONObject().apply {
             put("model", settings.modelName)
-            put("messages", JSONArray().apply {
-                put(
-                    JSONObject().apply {
-                        put("role", "system")
-                        put("content", PromptBuilder.systemPrompt(settings.customPrompt))
-                    },
-                )
-                put(
-                    JSONObject().apply {
-                        put("role", "user")
-                        put(
-                            "content",
-                            JSONArray().apply {
-                                put(textPart(PromptBuilder.userInstruction()))
-                                put(imagePart(ImagePipeline.toDataUrl(jpeg)))
-                            },
-                        )
-                    },
-                )
-            })
+            put(
+                "messages",
+                JSONArray().apply {
+                    put(
+                        JSONObject().apply {
+                            put("role", "system")
+                            put("content", systemPrompt)
+                        },
+                    )
+                    put(
+                        JSONObject().apply {
+                            put("role", "user")
+                            put("content", userContent)
+                        },
+                    )
+                },
+            )
             put("response_format", JSONObject().apply { put("type", "json_object") })
             put("thinking", JSONObject().apply { put("type", if (thinking) "enabled" else "disabled") })
             put("stream", false)

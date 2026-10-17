@@ -60,7 +60,7 @@
                 android:id="@+id/rbChannelOcr"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/settings_channel_ocr_disabled" />
+                android:text="@string/settings_channel_ocr" />
         </RadioGroup>
 
         <!-- 深度思考 -->

@@ -43,9 +43,7 @@ class SettingsActivity : AppCompatActivity() {
         thinkingSwitch = findViewById(R.id.swDeepThinking)
         promptInput = findViewById(R.id.etPrompt)
 
-        // 端侧 OCR 通道在 M4 才提供，这里先禁用，避免选了却静默不生效
-        ocrRadio.isEnabled = false
-        ocrRadio.text = getString(R.string.settings_channel_ocr_disabled)
+        // M4 起端侧 OCR 通道可用：模型打进 APK，离线出字，不需要 Google Play 服务
 
         findViewById<Button>(R.id.btnSaveSettings).setOnClickListener { save() }
         findViewById<Button>(R.id.btnResetPrompt).setOnClickListener {
@@ -64,10 +62,10 @@ class SettingsActivity : AppCompatActivity() {
     private fun loadCurrentValues() {
         refreshKeyStatus()
         if (settings.channel == SettingsStore.Channel.OCR) {
-            // 当前版本只支持视觉通道，选了 OCR 也回到视觉
-            settings.channel = SettingsStore.Channel.VISION
+            ocrRadio.isChecked = true
+        } else {
+            visionRadio.isChecked = true
         }
-        visionRadio.isChecked = true
         thinkingSwitch.isChecked = settings.deepThinking
         promptInput.setText(settings.customPrompt)
     }

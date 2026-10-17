@@ -32,6 +32,7 @@ import com.fragranstea.screensolve.capture.ProjectionSession
 import com.fragranstea.screensolve.data.BubblePositionStore
 import com.fragranstea.screensolve.data.SecureKeyStore
 import com.fragranstea.screensolve.data.SettingsStore
+import com.fragranstea.screensolve.recognize.OcrRecognizer
 import com.fragranstea.screensolve.recognize.SolveEngine
 import com.fragranstea.screensolve.recognize.SolveError
 import com.fragranstea.screensolve.recognize.SolveOutcome
@@ -349,25 +350,39 @@ class OverlayService :
         val card = showAnswerCard()
         card.showLoading()
 
+        val channel = settingsStore.channel
         Thread({
-            val jpeg = try {
-                val scaled = ImagePipeline.scaleToMaxLongSide(cropped)
-                try {
-                    ImagePipeline.toJpeg(scaled)
-                } finally {
-                    if (scaled !== cropped) scaled.recycle()
+            val outcome = try {
+                when (channel) {
+                    SettingsStore.Channel.OCR -> {
+                        // 先端侧出字（离线、不发原图），再把文本交给模型
+                        val text = OcrRecognizer.recognize(cropped)
+                        if (text.isNullOrBlank()) {
+                            Log.w(TAG, "OCR 未识别到文字")
+                            SolveOutcome.Failure(SolveError.EMPTY_RESPONSE, "OCR 未识别到文字")
+                        } else {
+                            solveEngine.solveText(text)
+                        }
+                    }
+
+                    SettingsStore.Channel.VISION -> {
+                        val scaled = ImagePipeline.scaleToMaxLongSide(cropped)
+                        val jpeg = try {
+                            ImagePipeline.toJpeg(scaled)
+                        } finally {
+                            if (scaled !== cropped) scaled.recycle()
+                        }
+                        Log.i(TAG, "开始识题（视觉直传）jpeg=${jpeg.size} bytes")
+                        solveEngine.solveVision(jpeg)
+                    }
                 }
             } catch (t: Throwable) {
                 // 图片处理出问题也必须让用户看到反馈，而不是卡在"正在识题"
-                Log.e(TAG, "裁剪/压缩失败", t)
-                onMain { card.showError(SolveError.UNKNOWN, t.message) }
-                return@Thread
+                Log.e(TAG, "识题流程异常", t)
+                SolveOutcome.Failure(SolveError.UNKNOWN, t.message)
             } finally {
                 cropped.recycle()
             }
-            Log.i(TAG, "开始识题 jpeg=${jpeg.size} bytes")
-
-            val outcome = solveEngine.solveVision(jpeg)
             when (outcome) {
                 is SolveOutcome.Success -> {
                     // 题干原文也打出来：这是判断"模型有没有读错题"的唯一自动化手段

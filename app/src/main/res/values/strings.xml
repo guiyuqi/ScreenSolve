@@ -53,7 +53,7 @@
 
     <!-- M3：选区 -->
     <string name="region_hint_empty">按住拖动或调整四角。建议只框一道题 —— 多题同框会分散模型注意力、降低质量</string>
-    <string name="region_hint_sized">已选择 %1$d × %2$d 像素 · 拖动四角微调\n建议只框一道题 —— 多题同框会分散模型注意力、降低答案质量</string>
+    <string name="region_hint_sized">%1$d×%2$d · 拖四角微调\n建议只框一道题（多题会降低质量）</string>
     <string name="region_confirm">识别这道题</string>
     <string name="region_cancel">取消</string>
 

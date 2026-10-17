@@ -51,9 +51,10 @@ class SecureKeyStore(context: Context) {
             cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(GCM_TAG_BITS, iv))
             String(cipher.doFinal(cipherText), Charsets.UTF_8)
         } catch (t: Throwable) {
-            // 密钥被系统作废（例如清除锁屏/恢复出厂）时解不开，直接当作未设置
-            Log.w(TAG, "解密 API Key 失败，视作未设置", t)
-            clear()
+            // 解不开**不要删**用户的 Key：Keystore 在个别时机（刚开机、刚重启进程、
+            // 系统密钥服务繁忙）会瞬时失败，自动 clear 等于把用户配置静默抹掉 —— 实测踩过一次。
+            // 这里只报告失败，清理由用户在设置页显式点"清除已保存的 KEY"触发。
+            Log.w(TAG, "解密 API Key 失败（保留原密文，等待下次重试）", t)
             null
         }
     }

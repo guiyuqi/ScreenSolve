@@ -354,6 +354,16 @@ class OverlayService :
         // lite 版本没有端侧 OCR：即便设置里残留 OCR 通道，也回退到视觉直传，不让用户白等
         val useOcr = channel == SettingsStore.Channel.OCR && OcrRecognizer.available
         Thread({
+            // 流式思考过程：节流后再刷 UI，否则每个 token 都 post 一次会把主线程刷爆
+            var lastReasoningPost = 0L
+            val onReasoning: (String) -> Unit = { text ->
+                val now = System.currentTimeMillis()
+                if (now - lastReasoningPost >= REASONING_THROTTLE_MS) {
+                    lastReasoningPost = now
+                    onMain { card.showReasoning(text) }
+                }
+            }
+
             val outcome = try {
                 if (useOcr) {
                     // 先端侧出字（离线、不发原图），再把文本交给模型
@@ -362,7 +372,7 @@ class OverlayService :
                         Log.w(TAG, "OCR 未识别到文字")
                         SolveOutcome.Failure(SolveError.EMPTY_RESPONSE, "OCR 未识别到文字")
                     } else {
-                        solveEngine.solveText(text)
+                        solveEngine.solveText(text, onReasoning)
                     }
                 } else {
                     if (channel == SettingsStore.Channel.OCR) {
@@ -374,8 +384,8 @@ class OverlayService :
                     } finally {
                         if (scaled !== cropped) scaled.recycle()
                     }
-                    Log.i(TAG, "开始识题（视觉直传）jpeg=${jpeg.size} bytes")
-                    solveEngine.solveVision(jpeg)
+                    Log.i(TAG, "开始识题（视觉直传，流式）jpeg=${jpeg.size} bytes")
+                    solveEngine.solveVision(jpeg, onReasoning)
                 }
             } catch (t: Throwable) {
                 // 图片处理出问题也必须让用户看到反馈，而不是卡在"正在识题"
@@ -565,6 +575,9 @@ class OverlayService :
 
         /** 等"隐藏悬浮球之后的新帧"的最长时间。隐藏本身是一次画面变化，所以新帧一定会来。 */
         private const val FRAME_WAIT_TIMEOUT_MS = 800L
+
+        /** 思考过程刷新间隔：150ms 足够"有动静"，又不会把主线程刷爆。 */
+        private const val REASONING_THROTTLE_MS = 150L
 
         /**
          * 供界面判断服务是否在运行。

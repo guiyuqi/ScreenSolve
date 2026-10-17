@@ -80,6 +80,20 @@ class AnswerCardOverlay(
         copyButton?.isEnabled = false
     }
 
+    /**
+     * 思考过程实时更新（流式）。
+     *
+     * 只显示模型 `reasoning_content` 的尾部若干字 —— 这段内容会很长，
+     * 全量塞进 TextView 既慢又没人看，用户只需要知道"它在动、在思考什么方向"。
+     */
+    fun showReasoning(text: String) {
+        if (root == null) return
+        val tail = text.takeLast(REASONING_TAIL_CHARS).trim()
+        if (tail.isEmpty()) return
+        footnoteView?.text = context.getString(R.string.answer_thinking, tail)
+        footnoteView?.visibility = View.VISIBLE
+    }
+
     fun showAnswer(answer: Answer) {
         ensureView()
         current = answer
@@ -402,5 +416,6 @@ class AnswerCardOverlay(
         const val BODY_COLOR = 0xFF222222.toInt()
         const val FOOTNOTE_COLOR = 0xFF6B6B6B.toInt()
         const val HANDLE_COLOR = 0xFFC9C9C9.toInt()
+        const val REASONING_TAIL_CHARS = 240
     }
 }

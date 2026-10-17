@@ -47,6 +47,7 @@
 
     <string name="answer_state_loading">Solving…</string>
     <string name="answer_state_loading_hint">The selected area was sent to the model. Deep thinking takes longer.</string>
+    <string name="answer_thinking">Thinking…\n%1$s</string>
     <string name="answer_state_failed">Failed</string>
     <string name="answer_header_subject">%1$s · confidence %2$d%%</string>
     <string name="answer_header_plain">Result</string>

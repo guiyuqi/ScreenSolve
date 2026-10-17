@@ -60,6 +60,7 @@
     <!-- M3：答案卡片 -->
     <string name="answer_state_loading">正在识题…</string>
     <string name="answer_state_loading_hint">已把选区发给模型，正在等待结果。开启"深度思考"会更慢一些。</string>
+    <string name="answer_thinking">思考中…\n%1$s</string>
     <string name="answer_state_failed">识题失败</string>
     <string name="answer_header_subject">%1$s · 置信度 %2$d%%</string>
     <string name="answer_header_plain">识题结果</string>

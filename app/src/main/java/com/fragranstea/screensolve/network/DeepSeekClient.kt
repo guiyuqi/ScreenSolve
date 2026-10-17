@@ -59,6 +59,90 @@ class DeepSeekClient {
         }
     }
 
+    /**
+     * 发送流式请求（SSE），返回拼好的 `content` 全文。
+     *
+     * 设计取舍：我们仍然要求模型输出 JSON，所以**流式内容对用户没意义**（会是一堆
+     * `{"answer":"\frac...` 的碎片）。因此：
+     * - `reasoning_content` 的增量交给 [onReasoning]，用于显示"正在思考"的实时文本
+     * - `content` 只累加、不外显，收完后一次性交给解析层渲染成公式
+     *
+     * 阻塞调用，**必须在工作线程执行**。
+     */
+    fun chatCompletionStream(
+        apiKey: String,
+        body: JSONObject,
+        readTimeoutMs: Int,
+        onReasoning: (String) -> Unit = {},
+        onContent: (String) -> Unit = {},
+    ): String {
+        val connection = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = CONNECT_TIMEOUT_MS
+            readTimeout = readTimeoutMs
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Accept", "text/event-stream")
+            setRequestProperty("Authorization", "Bearer $apiKey")
+        }
+
+        val payload = body.toString().toByteArray(Charsets.UTF_8)
+        try {
+            connection.setFixedLengthStreamingMode(payload.size)
+            connection.outputStream.use { it.write(payload) }
+
+            val status = connection.responseCode
+            if (status !in 200..299) {
+                val detail = connection.errorStream?.bufferedReader()?.use { it.readText() }
+                throw ApiException(mapStatus(status), extractMessage(detail) ?: "HTTP $status")
+            }
+
+            val content = StringBuilder()
+            val reasoning = StringBuilder()
+            connection.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
+                var line = reader.readLine()
+                while (line != null) {
+                    if (line.startsWith("data:")) {
+                        val payloadLine = line.removePrefix("data:").trim()
+                        if (payloadLine == "[DONE]") break
+                        if (payloadLine.isNotEmpty()) {
+                            runCatching {
+                                val delta = JSONObject(payloadLine)
+                                    .optJSONArray("choices")
+                                    ?.optJSONObject(0)
+                                    ?.optJSONObject("delta")
+                                val reasoningDelta = delta?.optString("reasoning_content").orEmpty()
+                                if (reasoningDelta.isNotEmpty()) {
+                                    reasoning.append(reasoningDelta)
+                                    onReasoning(reasoning.toString())
+                                }
+                                val contentDelta = delta?.optString("content").orEmpty()
+                                if (contentDelta.isNotEmpty()) {
+                                    content.append(contentDelta)
+                                    onContent(content.toString())
+                                }
+                            }.onFailure { Log.w(TAG, "解析流式分片失败: ${payloadLine.take(80)}", it) }
+                        }
+                    }
+                    line = reader.readLine()
+                }
+            }
+
+            if (content.isBlank()) {
+                throw ApiException(SolveError.EMPTY_RESPONSE, "流式响应没有 content")
+            }
+            return content.toString()
+        } catch (e: SocketTimeoutException) {
+            throw ApiException(SolveError.TIMEOUT, e.message ?: "读取超时")
+        } catch (e: ApiException) {
+            throw e
+        } catch (e: IOException) {
+            throw ApiException(SolveError.NETWORK, e.message ?: "网络错误")
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     private fun extractContent(responseText: String): String {
         val root = try {
             JSONObject(responseText)

@@ -45,7 +45,7 @@ app/src/main/java/com/fragranstea/screensolve/
 ├─ data/
 │  ├─ SecureKeyStore.kt       API Key：Android Keystore AES-GCM 加密，只存密文
 │  ├─ SettingsStore.kt        channel(VISION/OCR) / deep_thinking / custom_prompt
-│  ├─ HistoryStore.kt         最近 10 条 + filesDir/history/<id>.jpg
+│  ├─ HistoryStore.kt         最近 10 条 + filesDir/history/<id>.jpg + 追问 turns
 │  └─ BubblePositionStore.kt  悬浮球位置记忆
 ├─ network/DeepSeekClient.kt  HttpURLConnection；chatCompletion + chatCompletionStream(SSE)
 ├─ recognize/
@@ -57,15 +57,16 @@ app/src/main/java/com/fragranstea/screensolve/
 ├─ ui/
 │  ├─ consent/ConsentActivity.kt       无界面授权中转（MediaProjection 只能 Activity 发起）
 │  ├─ overlay/OverlayService.kt        核心：悬浮球 + 会话 + 抓帧 + 识题编排（~640 行）
-│  ├─ overlay/AnswerCardOverlay.kt     答案卡片：贴底满宽、层级排版、高度锚点、流式思考
+│  ├─ overlay/AnswerCardOverlay.kt     答案卡片：贴底满宽、高度锚点、流式思考、追问输入行（窗口可聚焦）
 │  ├─ overlay/FloatingBubbleView.kt    自绘悬浮球
 │  ├─ region/RegionSelectView.kt       预选框 + 四角拖拽 + 框内平移 + 框外重画
 │  ├─ region/RegionSelectActivity.kt   选区界面
-│  ├─ history/HistoryActivity.kt       历史列表 + 详情弹窗 + 全屏看原图
+│  ├─ history/HistoryActivity.kt       历史列表（点条目进会话视图）
+│  ├─ history/ConversationActivity.kt  **会话视图**：看图 + 读答案 + 接着追问（重建 vision 会话）
 │  ├─ settings/SettingsActivity.kt     Key / 通道 / 深度思考 / 自定义提示词
 │  └─ main/MainActivity.kt             权限引导 + 总开关 + 会话状态 + 入口
 └─ util/
-   ├─ MathTextRenderer.kt     **公式渲染的核心**：Markwon 管 markdown，$...$ 用 jlatexmath 画成 ImageSpan
+   ├─ MathTextRenderer.kt     **公式渲染的核心**：整段 Markwon 管 markdown，公式换 token → jlatexmath ImageSpan（详见 §9 踩坑）
    └─ DisplayUtils.kt         屏幕尺寸（用 maximumWindowMetrics，保证等于整屏）
 ```
 

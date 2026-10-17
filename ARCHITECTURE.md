@@ -460,7 +460,8 @@ WSL 里没有 USB 直通、也没有 `/dev/kvm`（详见 `ENV_CHECK.md`），所
 | **M2 截图 + 选区** ✅ **真机验证通过** | `ProjectionSession`（一次授权、会话常驻、持续排空保留最新帧）、`ConsentActivity`（无界面授权中转） | 连续 3 次抓帧不再弹授权；滚动+静置 8 秒后抓帧与真实屏幕逐像素差异 2.7%（详见 §12） |
 | **M3 打通视觉识别** 🟡 **代码完成，待真机验证** | `RegionSelectView`/`RegionSelectActivity`（拖框选区）、`ImagePipeline`（裁剪→缩放→JPEG→base64）、`SecureKeyStore`（Keystore AES-GCM 加密存 Key）、`SettingsActivity`（Key / 通道 / 深度思考 / 自定义提示词）、`DeepSeekClient`（HttpURLConnection）、`PromptBuilder` + `AnswerParser`、`AnswerCardOverlay`（题干回显/答案/解析/置信度/复制） | 真机跑通：拖框 → 识别 → 答案卡片；Key 错误/断网/余额不足都有可操作提示。**SSE 流式输出留到 M4**（当前是同步请求 + loading 卡片） |
 | **M4 通道切换 + 流式 + 历史** 🟡 **OCR 通道已完成** | ✅ ML Kit 中文 OCR（bundled，离线，不依赖 GMS）+ 设置页通道切换 + `SolveEngine.solveText` 文本通道；⬜ SSE 流式输出；⬜ 历史记录 | OCR 通道真机跑通：离线出字 → 文本交模型 → 模型如实指出 OCR 错字（"申诗/载屏/設置"）并降低结论可靠性 ✅；⬜ 流式打字机；⬜ 历史记录 |
-| **M5 体验打磨** | 追问多轮（同窗口带上下文继续问，见用户需求第 5 点）、历史记录、思考模式三档、错误重试、开屏引导 | 连续使用 30 分钟不崩、不卡、不烫手 |
+| **M5 多轮追问** | 答案卡片内追问（保留上下文）、历史 → 会话视图续聊、追问入历史 | 追问回复可读；从历史能接着问 |
+| **M6 体验打磨** | 追问多轮（同窗口带上下文继续问，见用户需求第 5 点）、历史记录、思考模式三档、错误重试、开屏引导 | 连续使用 30 分钟不崩、不卡、不烫手 |
 
 **M0–M2 已真机验证通过，M3 代码完成待验收**。M3 的实现取舍：先用同步请求 + "正在识题…"卡片保证正确性，SSE 流式打字机效果放到 M4 与 OCR 通道一起做。
 

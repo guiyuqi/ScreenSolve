@@ -100,6 +100,7 @@
     <string name="settings_section_channel">识题通道</string>
     <string name="settings_channel_vision">视觉直传（推荐）：截图直接交给多模态模型</string>
     <string name="settings_channel_ocr">端侧 OCR + 文本模型（离线出字、省 token，但不把原图发出去）</string>
+    <string name="settings_channel_ocr_unavailable">端侧 OCR + 文本模型（需安装 full 版本）</string>
     <string name="settings_section_thinking">思考模式</string>
     <string name="settings_thinking_label">深度思考（更准，但更慢）</string>
     <string name="settings_thinking_hint">开启后模型先推理再作答，数学题正确率更高，代价是等待更久。</string>

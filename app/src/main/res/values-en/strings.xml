@@ -85,6 +85,7 @@
     <string name="settings_section_channel">Solving channel</string>
     <string name="settings_channel_vision">Image passthrough (recommended): send the screenshot to the multimodal model</string>
     <string name="settings_channel_ocr">On-device OCR + text model (offline text extraction, fewer tokens, sends no image)</string>
+    <string name="settings_channel_ocr_unavailable">On-device OCR + text model (requires the full build)</string>
     <string name="settings_section_thinking">Thinking mode</string>
     <string name="settings_thinking_label">Deep thinking (more accurate, slower)</string>
     <string name="settings_thinking_hint">The model reasons first, which helps with math, at the cost of latency.</string>

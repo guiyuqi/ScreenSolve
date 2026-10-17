@@ -6,6 +6,7 @@ import android.content.Context
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -19,9 +20,10 @@ import android.widget.TextView
 import android.widget.Toast
 import com.fragranstea.screensolve.R
 import com.fragranstea.screensolve.recognize.Answer
-import com.fragranstea.screensolve.recognize.AnswerTextFormatter
 import com.fragranstea.screensolve.recognize.SolveError
 import com.fragranstea.screensolve.util.DisplayUtils
+import com.fragranstea.screensolve.util.MathTextRenderer
+import io.noties.markwon.Markwon
 
 /**
  * 答案卡片：贴底、接近满宽的可滚动面板。
@@ -51,6 +53,15 @@ class AnswerCardOverlay(
     private var footnoteView: TextView? = null
     private var copyButton: Button? = null
     private var current: Answer? = null
+
+    /**
+     * Markwon 只负责 markdown；`$...$` 的公式由 [MathTextRenderer] 用 jlatexmath 画成 Drawable。
+     *
+     * 为什么不用 Markwon 的 ext-latex 插件：实测 4.6.2 上即便 `inlinesEnabled(true)` +
+     * 显式注册 `MarkwonInlineParserPlugin`，它仍然不解析 `$...$`（不报错、静默当普通文本），
+     * 排查成本高于自己实现。
+     */
+    private val markwon: Markwon by lazy { Markwon.create(context) }
 
     /** 窗口参数与高度调节状态（顶部锚点拖动时会直接改 params.height）。 */
     private var paramsRef: WindowManager.LayoutParams? = null
@@ -83,33 +94,33 @@ class AnswerCardOverlay(
             context.getString(R.string.answer_header_plain)
         }
 
-        val question = AnswerTextFormatter.sanitize(answer.question)
-        questionView?.text = question
-        showSections(question = question.isNotBlank(), answer = true, steps = answer.steps.isNotEmpty())
+        render(questionView, answer.question)
+        showSections(
+            question = answer.question.isNotBlank(),
+            answer = true,
+            steps = answer.steps.isNotEmpty(),
+        )
 
-        answerView?.text = AnswerTextFormatter.sanitize(answer.answer)
+        render(answerView, answer.answer)
 
         stepsContainer?.removeAllViews()
         answer.steps.forEachIndexed { index, step ->
+            val stepView = TextView(context).apply {
+                textSize = 14.5f
+                setTextColor(BODY_COLOR)
+                setLineSpacing(6f * DisplayUtils.density(context), 1f)
+                setPadding(0, DisplayUtils.dp(context, 6), 0, 0)
+            }
             stepsContainer?.addView(
-                TextView(context).apply {
-                    text = context.getString(
-                        R.string.answer_step_item,
-                        index + 1,
-                        AnswerTextFormatter.sanitize(step),
-                    )
-                    textSize = 14.5f
-                    setTextColor(BODY_COLOR)
-                    setLineSpacing(6f * DisplayUtils.density(context), 1f)
-                    setPadding(0, DisplayUtils.dp(context, 6), 0, 0)
-                },
+                stepView,
                 LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT),
             )
+            render(stepView, context.getString(R.string.answer_step_item, index + 1, step))
         }
 
-        footnoteView?.text = buildFootnote(answer)
-        footnoteView?.visibility =
-            if (footnoteView?.text.isNullOrBlank()) View.GONE else View.VISIBLE
+        val footnote = buildFootnote(answer)
+        render(footnoteView, footnote)
+        footnoteView?.visibility = if (footnote.isBlank()) View.GONE else View.VISIBLE
 
         copyButton?.isEnabled = true
     }
@@ -133,7 +144,7 @@ class AnswerCardOverlay(
 
     private fun buildFootnote(answer: Answer): String = buildString {
         if (answer.conclusion.isNotBlank()) {
-            append(AnswerTextFormatter.sanitize(answer.conclusion))
+            append(answer.conclusion.trim())
         }
         if (answer.knowledgePoints.isNotEmpty()) {
             if (isNotEmpty()) appendLine()
@@ -159,6 +170,25 @@ class AnswerCardOverlay(
         answerView?.visibility = if (answer) View.VISIBLE else View.GONE
         stepsLabel?.visibility = if (steps) View.VISIBLE else View.GONE
         stepsContainer?.visibility = if (steps) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * 渲染 markdown/LaTeX 到 TextView。
+     * 解析失败时退回纯文本 —— 公式画不出来也不能让用户看到空白。
+     */
+    private fun render(view: TextView?, markdown: String) {
+        if (view == null) return
+        val raw = markdown.trim()
+        if (raw.isEmpty()) {
+            view.text = ""
+            return
+        }
+        try {
+            MathTextRenderer.render(markwon, view, raw, view.textSize, view.currentTextColor)
+        } catch (t: Throwable) {
+            Log.e("AnswerCard", "渲染失败，回退纯文本: ${raw.take(80)}", t)
+            view.text = raw
+        }
     }
 
     /**

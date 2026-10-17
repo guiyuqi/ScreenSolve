@@ -351,30 +351,31 @@ class OverlayService :
         card.showLoading()
 
         val channel = settingsStore.channel
+        // lite 版本没有端侧 OCR：即便设置里残留 OCR 通道，也回退到视觉直传，不让用户白等
+        val useOcr = channel == SettingsStore.Channel.OCR && OcrRecognizer.available
         Thread({
             val outcome = try {
-                when (channel) {
-                    SettingsStore.Channel.OCR -> {
-                        // 先端侧出字（离线、不发原图），再把文本交给模型
-                        val text = OcrRecognizer.recognize(cropped)
-                        if (text.isNullOrBlank()) {
-                            Log.w(TAG, "OCR 未识别到文字")
-                            SolveOutcome.Failure(SolveError.EMPTY_RESPONSE, "OCR 未识别到文字")
-                        } else {
-                            solveEngine.solveText(text)
-                        }
+                if (useOcr) {
+                    // 先端侧出字（离线、不发原图），再把文本交给模型
+                    val text = OcrRecognizer.recognize(cropped)
+                    if (text.isNullOrBlank()) {
+                        Log.w(TAG, "OCR 未识别到文字")
+                        SolveOutcome.Failure(SolveError.EMPTY_RESPONSE, "OCR 未识别到文字")
+                    } else {
+                        solveEngine.solveText(text)
                     }
-
-                    SettingsStore.Channel.VISION -> {
-                        val scaled = ImagePipeline.scaleToMaxLongSide(cropped)
-                        val jpeg = try {
-                            ImagePipeline.toJpeg(scaled)
-                        } finally {
-                            if (scaled !== cropped) scaled.recycle()
-                        }
-                        Log.i(TAG, "开始识题（视觉直传）jpeg=${jpeg.size} bytes")
-                        solveEngine.solveVision(jpeg)
+                } else {
+                    if (channel == SettingsStore.Channel.OCR) {
+                        Log.w(TAG, "当前为 lite 版本（无端侧 OCR），回退到视觉直传")
                     }
+                    val scaled = ImagePipeline.scaleToMaxLongSide(cropped)
+                    val jpeg = try {
+                        ImagePipeline.toJpeg(scaled)
+                    } finally {
+                        if (scaled !== cropped) scaled.recycle()
+                    }
+                    Log.i(TAG, "开始识题（视觉直传）jpeg=${jpeg.size} bytes")
+                    solveEngine.solveVision(jpeg)
                 }
             } catch (t: Throwable) {
                 // 图片处理出问题也必须让用户看到反馈，而不是卡在"正在识题"

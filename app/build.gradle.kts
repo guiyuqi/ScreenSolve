@@ -10,15 +10,33 @@ android {
         applicationId = "com.fragranstea.screensolve"
         minSdk = 29
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.4.0-m4"
+        versionCode = 5
+        versionName = "0.5.0-m4"
 
-        // 只保留真机需要的 ABI。ML Kit 的中文 OCR 会给每个 ABI 各带一份
-        // libmlkit_google_ocr_pipeline.so（arm64 10.6MB / x86 11MB / x86_64 11.1MB / v7a 6.5MB），
-        // 不裁剪的话 APK 会从 8.5MB 涨到 54.8MB。
-        // 以后要在模拟器（x86_64）或老 32 位机（armeabi-v7a）上跑，把对应 ABI 加回来即可。
+        // 只保留真机需要的 ABI（ML Kit 会给每个 ABI 各带一份 10MB 级原生库）
         ndk {
             abiFilters += listOf("arm64-v8a")
+        }
+
+        // 只打包中英文资源：AndroidX / Material 自带几十种语言的字符串，不裁的话白白占体积
+        resourceConfigurations += listOf("zh", "en")
+    }
+
+    /**
+     * 两个版本，二选一安装：
+     * - lite（默认）：只有视觉直传通道，APK 约 2.5 MB —— 日常用这个，启动快、体积小
+     * - full：额外带端侧离线 OCR（ML Kit 中文），APK 约 15 MB —— 需要离线出字/不发原图时才装
+     *
+     * 差异只由 src/lite、src/full 两个源集各自提供的 OcrRecognizer 决定，
+     * 业务代码完全共用，不存在两套维护分支。
+     */
+    flavorDimensions += "ocr"
+    productFlavors {
+        create("lite") {
+            dimension = "ocr"
+        }
+        create("full") {
+            dimension = "ocr"
         }
     }
 
@@ -47,9 +65,14 @@ dependencies {
     implementation("androidx.core:core-ktx:1.18.0")      // ContextCompat / ServiceCompat
     implementation("androidx.appcompat:appcompat:1.8.0") // AppCompatActivity + DayNight 主题（minCompileSdk=34）
 
-    // 端侧中文 OCR：bundled 版（模型打进 APK，约 +1.9MB），不依赖 Google Play 服务
-    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+    // Markdown 用 Markwon（0.13 MB）；公式用 jlatexmath（0.62 MB）直接画成 Drawable，
+    // 不引 WebView、也不用 Markwon 那个不可靠的 ext-latex 插件
+    implementation("io.noties.markwon:core:4.6.2")
+    implementation("ru.noties:jlatexmath-android:0.2.0")
 
-    // 纯 JVM 单元测试：LaTeX/markdown 清洗器这类字符串逻辑必须能在本机验证，不必上真机
+    // 端侧中文 OCR 只在 full 版本里（bundled 模型，不依赖 Google Play 服务）
+    "fullImplementation"("com.google.mlkit:text-recognition-chinese:16.0.1")
+
+    // 纯 JVM 单元测试
     testImplementation("junit:junit:4.13.2")
 }

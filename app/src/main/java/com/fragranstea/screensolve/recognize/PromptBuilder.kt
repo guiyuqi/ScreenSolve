@@ -12,6 +12,12 @@ package com.fragranstea.screensolve.recognize
  */
 object PromptBuilder {
 
+    /**
+     * `$` 在 Kotlin 原始字符串里会被当成模板起始，用它拼一下。
+     * （LaTeX 必须用真正的 ASCII `$` 定界，卡片侧的数学引擎认这个。）
+     */
+    private const val D = "\$"
+
     private const val SCHEMA = """{
   "subject": "学科，如 数学/物理/英语",
   "question": "题目原文，逐字照抄图片中读到的内容",
@@ -22,12 +28,16 @@ object PromptBuilder {
   "confidence": 0.9
 }"""
 
-    private const val OUTPUT_RULES = """硬性要求：
-1. 全部字段用纯文本书写：数学式子直接用普通字符表示（例如 x^2-5x+6=0、x1=2 或 x₁=2、1/2、√2、≤、≠）。
-   禁止使用 LaTeX（不要出现 $、\frac、\begin、&、\left）与 markdown（不要出现 **、#、`），
-   因为答题卡片的渲染器只显示纯文本，写 LaTeX 会变成一堆看不懂的反斜杠。
-2. steps 每一项是一句完整的推导，句内不要换行，也不要自己编号。
-3. confidence 是 0 到 1 的小数，表示你对作答结果的信心。"""
+    private val OUTPUT_RULES = """硬性要求：
+1. 所有数学公式必须用标准 LaTeX 书写，并用 ${D} 定界：行内公式写作 ${D}...${D}，独立成行的公式写作 ${D}${D}...${D}${D}。
+   正确示例：${D}\int_{0}^{2} x^{2}\,dx${D}、${D}e^{-1}${D}、${D}\frac{1}{2}${D}、${D}x_{1}=2${D}、${D}\sqrt{2}${D}、${D}\lim_{n\to\infty} a_{n}${D}。
+   错误示例：∫_0^2（用 Unicode 字符硬拼）、1/2-e^(-1)、x1=2 —— 这类写法在卡片上会很难看，必须改用 LaTeX。
+   卡片会用数学引擎把 LaTeX 真正渲染成公式，所以请直接写 LaTeX，不要为了"能看懂"而退化成纯文本。
+2. 公式之外的文字可以用 markdown（**加粗**、`行内代码`、- 列表），卡片同样会渲染。
+3. steps 每一项是一句完整的推导，句内不要换行，也不要自己编号；需要多行推导就拆成多条 steps。
+4. 禁止使用需要额外宏包的多行环境（不要用 \begin{aligned}、\begin{cases}、\begin{array}），
+   多行推导请拆成多条 steps；单行的分式、根号、积分、上下标、希腊字母、极限都可以正常使用。
+5. confidence 是 0 到 1 的小数，表示你对作答结果的信心。"""
 
     /** 视觉直传：模型自己看截图。 */
     fun systemPrompt(style: String): String = buildString {
@@ -65,7 +75,7 @@ object PromptBuilder {
         appendLine("   严禁凭猜测补题。")
         appendLine()
         appendLine(OUTPUT_RULES)
-        appendLine("4. OCR 文本可能有错字或缺字，若某处不确定，请在 conclusion 中提醒用户核对。")
+        appendLine("6. OCR 文本可能有错字或缺字，若某处不确定，请在 conclusion 中提醒用户核对。")
         appendStyle(style)
     }
 

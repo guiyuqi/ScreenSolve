@@ -97,4 +97,14 @@
 
     <string name="main_section_settings">Settings</string>
     <string name="main_btn_settings">Open settings (API key / prompt)</string>
+
+    <string name="history_title">History</string>
+    <string name="history_empty">No records yet. After solving a question, the crop and answer are kept locally (never uploaded).</string>
+    <string name="history_clear">Clear history</string>
+    <string name="history_clear_confirm">This deletes all history and local question images. Continue?</string>
+    <string name="history_cancel">Cancel</string>
+    <string name="history_cancel_ok">OK</string>
+    <string name="history_detail">History detail</string>
+    <string name="history_answer_prefix">Answer: %1$s</string>
+    <string name="main_btn_history">History (last 10)</string>
 </resources>

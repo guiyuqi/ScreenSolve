@@ -30,6 +30,7 @@ import com.fragranstea.screensolve.capture.FrameHolder
 import com.fragranstea.screensolve.capture.ImagePipeline
 import com.fragranstea.screensolve.capture.ProjectionSession
 import com.fragranstea.screensolve.data.BubblePositionStore
+import com.fragranstea.screensolve.data.HistoryStore
 import com.fragranstea.screensolve.data.SecureKeyStore
 import com.fragranstea.screensolve.data.SettingsStore
 import com.fragranstea.screensolve.recognize.OcrRecognizer
@@ -68,6 +69,7 @@ class OverlayService :
     private var answerCard: AnswerCardOverlay? = null
 
     private lateinit var settingsStore: SettingsStore
+    private lateinit var historyStore: HistoryStore
     private lateinit var solveEngine: SolveEngine
 
     /** 用户点悬浮球时若还没有会话，授权完成之后要把这次抓帧继续做完。 */
@@ -80,6 +82,7 @@ class OverlayService :
         positionStore = BubblePositionStore(this)
         settingsStore = SettingsStore(this)
         solveEngine = SolveEngine(settingsStore, SecureKeyStore(this))
+        historyStore = HistoryStore(this)
         startForegroundCompat()
         showBubble()
         isRunning = true
@@ -364,8 +367,23 @@ class OverlayService :
                 }
             }
 
+            // 先统一压出 JPEG：视觉通道要用它发请求，OCR 通道和历史记录也要用它存图
+            val jpeg = try {
+                val scaled = ImagePipeline.scaleToMaxLongSide(cropped)
+                try {
+                    ImagePipeline.toJpeg(scaled)
+                } finally {
+                    if (scaled !== cropped) scaled.recycle()
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "裁剪/压缩失败", t)
+                null
+            }
+
             val outcome = try {
-                if (useOcr) {
+                if (jpeg == null) {
+                    SolveOutcome.Failure(SolveError.UNKNOWN, "图片处理失败")
+                } else if (useOcr) {
                     // 先端侧出字（离线、不发原图），再把文本交给模型
                     val text = OcrRecognizer.recognize(cropped)
                     if (text.isNullOrBlank()) {
@@ -377,12 +395,6 @@ class OverlayService :
                 } else {
                     if (channel == SettingsStore.Channel.OCR) {
                         Log.w(TAG, "当前为 lite 版本（无端侧 OCR），回退到视觉直传")
-                    }
-                    val scaled = ImagePipeline.scaleToMaxLongSide(cropped)
-                    val jpeg = try {
-                        ImagePipeline.toJpeg(scaled)
-                    } finally {
-                        if (scaled !== cropped) scaled.recycle()
                     }
                     Log.i(TAG, "开始识题（视觉直传，流式）jpeg=${jpeg.size} bytes")
                     solveEngine.solveVision(jpeg, onReasoning)
@@ -406,6 +418,8 @@ class OverlayService :
                     outcome.answer.steps.forEachIndexed { index, step ->
                         Log.i(TAG, "步骤${index + 1}=${step.take(120)}")
                     }
+                    // 成功后落历史（题目图只存本地，随应用卸载一起消失）
+                    historyStore.save(jpeg, outcome.answer)
                 }
                 is SolveOutcome.Failure -> Log.w(TAG, "识题失败 error=${outcome.error} detail=${outcome.detail}")
             }

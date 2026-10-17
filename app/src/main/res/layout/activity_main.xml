@@ -77,6 +77,11 @@
             style="@style/ActionButton"
             android:text="@string/main_btn_settings" />
 
+        <Button
+            android:id="@+id/btnOpenHistory"
+            style="@style/ActionButton"
+            android:text="@string/main_btn_history" />
+
         <TextView
             style="@style/SectionTitle"
             android:text="@string/main_section_note" />

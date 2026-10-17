@@ -65,6 +65,11 @@
             android:theme="@style/Theme.ScreenSolve" />
 
         <activity
+            android:name=".ui.history.HistoryActivity"
+            android:exported="false"
+            android:label="@string/history_title" />
+
+        <activity
             android:name=".ui.settings.SettingsActivity"
             android:exported="false"
             android:label="@string/settings_title" />

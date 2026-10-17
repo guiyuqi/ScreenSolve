@@ -113,4 +113,15 @@
     <!-- 主界面新增 -->
     <string name="main_section_settings">设置</string>
     <string name="main_btn_settings">打开设置（API Key / 提示词）</string>
+
+    <!-- M4：历史记录 -->
+    <string name="history_title">历史记录</string>
+    <string name="history_empty">还没有记录。搜一道题之后，题目图和答案会保存在本地（只存本机，不上传）。</string>
+    <string name="history_clear">清空历史</string>
+    <string name="history_clear_confirm">会删除全部历史记录和本地题目图，确定吗？</string>
+    <string name="history_cancel">取消</string>
+    <string name="history_cancel_ok">确定</string>
+    <string name="history_detail">历史详情</string>
+    <string name="history_answer_prefix">答案：%1$s</string>
+    <string name="main_btn_history">历史记录（最近 10 次）</string>
 </resources>

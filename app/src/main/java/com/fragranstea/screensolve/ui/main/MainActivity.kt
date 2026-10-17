@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.fragranstea.screensolve.R
 import com.fragranstea.screensolve.ui.overlay.OverlayService
+import com.fragranstea.screensolve.ui.history.HistoryActivity
 import com.fragranstea.screensolve.ui.settings.SettingsActivity
 import com.fragranstea.screensolve.util.Permissions
 
@@ -45,6 +46,9 @@ class MainActivity : AppCompatActivity() {
         releaseSessionButton = findViewById(R.id.btnReleaseSession)
         findViewById<Button>(R.id.btnOpenSettings).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        findViewById<Button>(R.id.btnOpenHistory).setOnClickListener {
+            startActivity(Intent(this, HistoryActivity::class.java))
         }
 
         grantOverlayButton.setOnClickListener {

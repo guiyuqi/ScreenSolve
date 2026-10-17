@@ -34,6 +34,7 @@ import com.fragranstea.screensolve.data.HistoryStore
 import com.fragranstea.screensolve.data.SecureKeyStore
 import com.fragranstea.screensolve.data.SettingsStore
 import com.fragranstea.screensolve.recognize.OcrRecognizer
+import com.fragranstea.screensolve.recognize.SolveSession
 import com.fragranstea.screensolve.recognize.SolveEngine
 import com.fragranstea.screensolve.recognize.SolveError
 import com.fragranstea.screensolve.recognize.SolveOutcome
@@ -70,6 +71,9 @@ class OverlayService :
 
     private lateinit var settingsStore: SettingsStore
     private lateinit var historyStore: HistoryStore
+
+    /** 当前会话（M5 多轮追问的上下文）；新一次识题会替换它。 */
+    private var activeSession: SolveSession? = null
     private lateinit var solveEngine: SolveEngine
 
     /** 用户点悬浮球时若还没有会话，授权完成之后要把这次抓帧继续做完。 */
@@ -179,6 +183,7 @@ class OverlayService :
         }
         projectionSession = null
         isSessionActive = false
+        activeSession = null
         answerCard?.remove()
         answerCard = null
     }
@@ -390,17 +395,20 @@ class OverlayService :
                         Log.w(TAG, "OCR 未识别到文字")
                         SolveOutcome.Failure(SolveError.EMPTY_RESPONSE, "OCR 未识别到文字")
                     } else {
-                        solveEngine.solveText(text, onReasoning)
+                        val session = solveEngine.newTextSession(text)
+                        activeSession = session
+                        solveEngine.followUp(session.messages, onReasoning)
                     }
                 } else {
                     if (channel == SettingsStore.Channel.OCR) {
                         Log.w(TAG, "当前为 lite 版本（无端侧 OCR），回退到视觉直传")
                     }
                     Log.i(TAG, "开始识题（视觉直传，流式）jpeg=${jpeg.size} bytes")
-                    solveEngine.solveVision(jpeg, onReasoning)
+                    val session = solveEngine.newVisionSession(jpeg)
+                    activeSession = session
+                    solveEngine.followUp(session.messages, onReasoning)
                 }
             } catch (t: Throwable) {
-                // 图片处理出问题也必须让用户看到反馈，而不是卡在"正在识题"
                 Log.e(TAG, "识题流程异常", t)
                 SolveOutcome.Failure(SolveError.UNKNOWN, t.message)
             } finally {
@@ -419,6 +427,7 @@ class OverlayService :
                         Log.i(TAG, "步骤${index + 1}=${step.take(120)}")
                     }
                     // 成功后落历史（题目图只存本地，随应用卸载一起消失）
+                    activeSession?.appendAssistant(outcome.answer.raw)
                     historyStore.save(jpeg, outcome.answer)
                 }
                 is SolveOutcome.Failure -> Log.w(TAG, "识题失败 error=${outcome.error} detail=${outcome.detail}")
@@ -432,6 +441,49 @@ class OverlayService :
         }, "screensolve-solve").start()
     }
 
+    /**
+     * M5：在同一个卡片里继续追问。
+     *
+     * 上下文由 [activeSession] 维护（system + 首轮图/文本 + 历次问答），
+     * assistant 那轮保存的是模型原始 JSON，保证多轮之间结构不漂移。
+     */
+    private fun handleFollowUp(question: String) {
+        val session = activeSession
+        val card = answerCard
+        if (session == null || card == null) {
+            toast(R.string.toast_capture_failed)
+            return
+        }
+        session.appendUserText(question)
+        card.showLoading()
+        Log.i(TAG, "追问：${question.take(80)}")
+
+        Thread({
+            var lastPost = 0L
+            val onReasoning: (String) -> Unit = { text ->
+                val now = System.currentTimeMillis()
+                if (now - lastPost >= REASONING_THROTTLE_MS) {
+                    lastPost = now
+                    onMain { card.showReasoning(text) }
+                }
+            }
+            val outcome = solveEngine.followUp(session.messages, onReasoning)
+            when (outcome) {
+                is SolveOutcome.Success -> {
+                    session.appendAssistant(outcome.answer.raw)
+                    Log.i(TAG, "追问成功 answer=${outcome.answer.answer.take(60)}")
+                }
+                is SolveOutcome.Failure -> Log.w(TAG, "追问失败 error=${outcome.error}")
+            }
+            onMain {
+                when (outcome) {
+                    is SolveOutcome.Success -> card.showAnswer(outcome.answer)
+                    is SolveOutcome.Failure -> card.showError(outcome.error, outcome.detail)
+                }
+            }
+        }, "screensolve-followup").start()
+    }
+
     private fun showAnswerCard(): AnswerCardOverlay {
         answerCard?.remove()
 
@@ -440,6 +492,7 @@ class OverlayService :
         setBubbleVisible(false)
 
         val card = AnswerCardOverlay(this, windowManager)
+        card.onFollowUp = { question -> handleFollowUp(question) }
         card.onClosed = {
             if (answerCard === card) {
                 answerCard = null

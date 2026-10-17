@@ -206,3 +206,33 @@ cp app/build/outputs/apk/lite/debug/app-lite-debug.apk /mnt/c/Users/FragransTea/
 3. **M5 多轮追问**（§5，先做悬浮卡片里的追问，再做历史 → 会话视图）
 4. 历史详情从弹窗改为"进入会话视图"（消除"查看图片后回到目录"的反逻辑）
 5. 图片缩放、公式字号微调（打磨项）
+
+---
+
+## 9. M5 当前状态（重要，接手先看这里）
+
+### 已完成（代码已写、编译通过、已装机）
+- `recognize/SolveSession.kt`：会话持有 API 的 messages 数组（system → user(首图/OCR文本) → assistant(原始JSON) → 追问…），
+  assistant 存**模型原始输出**，超过 5 轮追问后丢弃最早的追问（保留首轮三条锚点）
+- `SolveEngine`：`newVisionSession / newTextSession / followUp(messages, onReasoning)`
+- `OverlayService`：识题改走会话（`activeSession`），成功后 `appendAssistant(answer.raw)`；
+  新增 `handleFollowUp(question)`（流式 + 思考显示）；释放会话时清空 `activeSession`
+- `AnswerCardOverlay`：底部加追问输入行（EditText + 追问按钮），有答案后才显示；
+  `setImeEnabled()` 在点击时切换 `FLAG_NOT_FOCUSABLE` 并 `updateViewLayout`（悬浮窗做输入的关键）
+- 字符串：`answer_follow_up_hint` / `answer_follow_up_send`
+
+### 未解决（下一轮第一件事）
+**追问输入行在真机上没出现**：`showAnswer` 里确实执行了 `followUpRow?.visibility = View.VISIBLE`
+（代码已确认），但截图里卡片在"复制答案/关闭"按钮下方就结束了。
+怀疑点（按可能性排序）：
+1. 卡片窗口高度不足，输入行被排到窗口可视区之外被裁掉 —— 先把卡片默认高度从 0.58 提到 0.70 试
+2. `inputRow` 的测量高度为 0（EditText 用了 `LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)` 的 width weight）
+3. 卡片参数高度与实际不符（截图里卡片看起来只有 ~0.45 屏高，而不是 0.58，需要确认 `params.height` 实际值）
+
+调试建议：用 `dumpsys window windows` 读卡片窗口的 `mAttrs=(...)(宽x高)`，与 `(bounds.height()*0.58)` 对比；
+再在 `showAnswer` 里打一行 `Log.i` 输出 `followUpRow?.height` 和 `root?.height`。
+
+### 还没做
+- 历史点击 → 进入会话视图（复用同一套会话模型，见 §5.3）
+- 追问结果入历史（现在只有首轮落库）
+- 图片缩放、公式字号微调

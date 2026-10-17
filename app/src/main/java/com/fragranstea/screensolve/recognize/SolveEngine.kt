@@ -54,6 +54,30 @@ class SolveEngine(
         return execute(messages, onReasoning)
     }
 
+    /** 视觉通道的首轮会话（带图）。 */
+    fun newVisionSession(jpeg: ByteArray): SolveSession = SolveSession(
+        systemPrompt = PromptBuilder.systemPrompt(settings.customPrompt),
+        firstUserContent = JSONArray().apply {
+            put(textPart(PromptBuilder.userInstruction()))
+            put(imagePart(ImagePipeline.toDataUrl(jpeg)))
+        },
+    )
+
+    /** OCR 通道的首轮会话（纯文本）。 */
+    fun newTextSession(ocrText: String): SolveSession = SolveSession(
+        systemPrompt = PromptBuilder.systemPromptForText(settings.customPrompt),
+        firstUserContent = JSONArray().apply {
+            put(textPart(PromptBuilder.userInstructionForText(ocrText)))
+        },
+    )
+
+    /**
+     * M5：多轮追问 / 首轮识题的统一入口。
+     * [messages] 已经包含 system + 首轮（图或 OCR 文本）+ 历次问答，由 [SolveSession] 维护。
+     */
+    fun followUp(messages: JSONArray, onReasoning: (String) -> Unit = {}): SolveOutcome =
+        execute(messages, onReasoning)
+
     private fun execute(messages: JSONArray, onReasoning: (String) -> Unit): SolveOutcome {
         val apiKey = keyStore.load()
         if (apiKey.isNullOrBlank()) return SolveOutcome.Failure(SolveError.NO_API_KEY)

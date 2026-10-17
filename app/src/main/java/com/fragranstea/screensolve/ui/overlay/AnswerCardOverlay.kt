@@ -12,7 +12,10 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
+import android.text.InputType
 import android.widget.Button
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -54,6 +57,11 @@ class AnswerCardOverlay(
     private var copyButton: Button? = null
     private var current: Answer? = null
 
+    // --- M5 多轮追问 ---
+    private var followUpInput: EditText? = null
+    private var followUpRow: View? = null
+    var onFollowUp: ((String) -> Unit)? = null
+
     /**
      * Markwon 只负责 markdown；`$...$` 的公式由 [MathTextRenderer] 用 jlatexmath 画成 Drawable。
      *
@@ -78,6 +86,7 @@ class AnswerCardOverlay(
         footnoteView?.text = context.getString(R.string.answer_state_loading_hint)
         footnoteView?.visibility = View.VISIBLE
         copyButton?.isEnabled = false
+        followUpRow?.visibility = View.GONE
     }
 
     /**
@@ -137,6 +146,7 @@ class AnswerCardOverlay(
         footnoteView?.visibility = if (footnote.isBlank()) View.GONE else View.VISIBLE
 
         copyButton?.isEnabled = true
+        followUpRow?.visibility = View.VISIBLE
     }
 
     fun showError(error: SolveError, detail: String?) {
@@ -154,6 +164,7 @@ class AnswerCardOverlay(
         }
         footnoteView?.visibility = View.VISIBLE
         copyButton?.isEnabled = false
+        followUpRow?.visibility = View.GONE
     }
 
     private fun buildFootnote(answer: Answer): String = buildString {
@@ -223,6 +234,39 @@ class AnswerCardOverlay(
             SolveError.UNKNOWN -> R.string.error_unknown
         },
     )
+
+    /**
+     * 追问输入需要窗口能接收输入法焦点。
+     *
+     * 悬浮窗默认带 FLAG_NOT_FOCUSABLE（不抢焦点、不弹输入法），
+     * 所以点输入框时必须临时去掉这个 flag 并 updateViewLayout，
+     * 否则键盘根本不会出现 —— 这是悬浮窗做输入最容易踩的坑。
+     */
+    private fun setImeEnabled(enabled: Boolean) {
+        val params = paramsRef ?: return
+        val view = root ?: return
+        params.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            (if (enabled) 0 else WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
+        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        runCatching { windowManager.updateViewLayout(view, params) }
+
+        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        if (enabled) {
+            followUpInput?.requestFocus()
+            imm?.showSoftInput(followUpInput, InputMethodManager.SHOW_IMPLICIT)
+        } else {
+            imm?.hideSoftInputFromWindow(view.windowToken, 0)
+            followUpInput?.clearFocus()
+        }
+    }
+
+    private fun submitFollowUp() {
+        val text = followUpInput?.text?.toString()?.trim().orEmpty()
+        if (text.isEmpty()) return
+        followUpInput?.setText("")
+        setImeEnabled(false)
+        onFollowUp?.invoke(text)
+    }
 
     private fun ensureView() {
         if (root != null) return
@@ -335,6 +379,42 @@ class AnswerCardOverlay(
         )
         card.addView(
             bottomRow,
+            LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                topMargin = DisplayUtils.dp(context, 8)
+            },
+        )
+
+        // 追问输入行：有答案后才显示，避免识题过程中误触
+        val input = EditText(context).apply {
+            hint = context.getString(R.string.answer_follow_up_hint)
+            textSize = 14f
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            maxLines = 3
+            setPadding(DisplayUtils.dp(context, 8), DisplayUtils.dp(context, 6), DisplayUtils.dp(context, 8), DisplayUtils.dp(context, 6))
+            // 必须先让窗口变成 focusable，EditText 才拿得到焦点（鸡生蛋）。
+            // 触摸事件在非 focusable 窗口里仍会送达，所以从点击事件里切 flag。
+            setOnClickListener { setImeEnabled(true) }
+        }
+        val sendButton = Button(context).apply {
+            text = context.getString(R.string.answer_follow_up_send)
+            setOnClickListener { submitFollowUp() }
+        }
+        val inputRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(input, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+            addView(
+                sendButton,
+                LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                    marginStart = DisplayUtils.dp(context, 8)
+                },
+            )
+            visibility = View.GONE
+        }
+        followUpInput = input
+        followUpRow = inputRow
+        card.addView(
+            inputRow,
             LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
                 topMargin = DisplayUtils.dp(context, 8)
             },

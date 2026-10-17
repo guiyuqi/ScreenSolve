@@ -125,4 +125,4 @@
     <string name="history_answer_prefix">答案：%1$s</string>
     <string name="main_btn_history">历史记录（最近 10 次）</string>
     <string name="history_view_image">查看题目图</string>
-</resources>
+    <string name="answer_follow_up_hint">接着问点什么…（例如：第二步再讲讲）</string>\n    <string name="answer_follow_up_send">追问</string>\n</resources>

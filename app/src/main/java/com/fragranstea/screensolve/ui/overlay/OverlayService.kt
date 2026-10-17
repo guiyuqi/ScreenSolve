@@ -451,7 +451,8 @@ class OverlayService :
         val session = activeSession
         val card = answerCard
         if (session == null || card == null) {
-            toast(R.string.toast_capture_failed)
+            Log.w(TAG, "追问被丢弃：session=${session != null} card=${card != null} q=${question.take(40)}")
+            toast(R.string.toast_follow_up_lost)
             return
         }
         session.appendUserText(question)
@@ -477,7 +478,7 @@ class OverlayService :
             }
             onMain {
                 when (outcome) {
-                    is SolveOutcome.Success -> card.showAnswer(outcome.answer)
+                    is SolveOutcome.Success -> card.showAnswer(outcome.answer, reply = true)
                     is SolveOutcome.Failure -> card.showError(outcome.error, outcome.detail)
                 }
             }

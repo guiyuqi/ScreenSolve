@@ -18,7 +18,7 @@
     <string name="notif_action_stop">关闭</string>
 
     <!-- 主界面 -->
-    <string name="main_subtitle">悬浮窗截图搜题 · M3 版本</string>
+    <string name="main_subtitle">悬浮窗截图搜题 · M5 版本</string>
     <string name="main_section_permission">权限状态</string>
     <string name="main_status_overlay_on">悬浮窗权限：已授权</string>
     <string name="main_status_overlay_off">悬浮窗权限：未授权（必须授权才能显示悬浮球）</string>
@@ -38,7 +38,7 @@
     <string name="main_btn_release_session">释放截屏会话</string>
 
     <string name="main_section_note">当前进度</string>
-    <string name="main_m1_note">M1 已完成：悬浮球的显示、拖动、松手吸边、点击响应、位置记忆，以及悬浮窗/通知权限引导。\n\nM2 已完成：一次授权后的常驻截屏会话、点悬浮球抓取当前帧。\n\nM3 已完成：拖框选区 → 裁剪压缩 → 调用 DeepSeek 视觉模型 → 答案卡片（含题干回显、分步解析、置信度提示）。\n\n下一步 M4：端侧 OCR 通道、流式输出、历史记录。</string>
+    <string name="main_m1_note">M1 悬浮球：显示、拖动、松手吸边、点击响应、位置记忆、权限引导。\n\nM2 常驻截屏：一次授权后持续抓帧，点悬浮球即取当前画面。\n\nM3 识题链路：拖框选区 → 裁剪压缩 → DeepSeek 视觉模型 → 答案卡片（题干回显、分步解析、置信度）。\n\nM4 体验完善：流式输出与思考过程、端侧 OCR 通道（full 版）、加密保存 API Key、自定义提示词、本地历史记录（含题目图）。\n\nM5 多轮追问：答案卡片内直接追问，保留上下文；公式按 LaTeX 渲染。\n\n下一步：历史记录直接续聊、更省流量的一次性截屏模式。</string>
 
     <!-- 提示 -->
     <string name="toast_need_overlay_permission">请先授予悬浮窗权限</string>
@@ -50,6 +50,7 @@
     <string name="toast_session_ready">截屏会话已就绪，再点悬浮球即可抓帧</string>
     <string name="toast_session_lost">截屏会话已被系统结束，需要重新授权</string>
     <string name="toast_capture_failed">抓帧失败，请重试</string>
+    <string name="toast_follow_up_lost">这道题的会话已结束，请重新框选识题</string>
 
     <!-- M3：选区 -->
     <string name="region_hint_empty">按住拖动或调整四角。建议只框一道题 —— 多题同框会分散模型注意力、降低质量</string>
@@ -64,8 +65,10 @@
     <string name="answer_state_failed">识题失败</string>
     <string name="answer_header_subject">%1$s · 置信度 %2$d%%</string>
     <string name="answer_header_plain">识题结果</string>
+    <string name="answer_header_reply">追问回复</string>
     <string name="answer_label_question">题目</string>
     <string name="answer_label_answer">答案</string>
+    <string name="answer_label_reply">回答</string>
     <string name="answer_label_steps">解析</string>
     <string name="answer_step_item">%1$d. %2$s</string>
     <string name="answer_question">题目：%1$s</string>

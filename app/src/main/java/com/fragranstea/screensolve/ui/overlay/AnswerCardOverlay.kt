@@ -103,27 +103,42 @@ class AnswerCardOverlay(
         footnoteView?.visibility = View.VISIBLE
     }
 
-    fun showAnswer(answer: Answer) {
+    /**
+     * @param reply true = 这是多轮追问的回复，不是首轮识题结果。
+     *   追问回复是"一段话"，用不着置信度标题、不需要回显题目，正文也不该用答案那种大字号。
+     */
+    fun showAnswer(answer: Answer, reply: Boolean = false) {
         ensureView()
         current = answer
 
-        headerView?.text = if (answer.subject.isNotBlank()) {
-            context.getString(
+        val asReply = reply || answer.plainText
+        headerView?.text = when {
+            asReply -> context.getString(R.string.answer_header_reply)
+            answer.subject.isNotBlank() -> context.getString(
                 R.string.answer_header_subject,
                 answer.subject,
                 (answer.confidence * 100).toInt(),
             )
-        } else {
-            context.getString(R.string.answer_header_plain)
+
+            else -> context.getString(R.string.answer_header_plain)
         }
 
         render(questionView, answer.question)
         showSections(
-            question = answer.question.isNotBlank(),
+            question = !asReply && answer.question.isNotBlank(),
             answer = true,
             steps = answer.steps.isNotEmpty(),
         )
 
+        // 首轮"答案"要醒目；追问回复是一段解释，用正常偏大的字号
+        answerLabel?.text = context.getString(
+            if (asReply) R.string.answer_label_reply else R.string.answer_label_answer,
+        )
+        answerView?.textSize = if (asReply) 17f else 22f
+        // 答案用粗体强调；追问回复是整段解释，粗体会变成一堵墙。
+        // 注意：setTypeface(当前粗体实例, NORMAL) 在部分 ROM 上不会真的变细，
+        // 直接换成 DEFAULT / DEFAULT_BOLD 才可靠。
+        answerView?.typeface = if (asReply) Typeface.DEFAULT else Typeface.DEFAULT_BOLD
         render(answerView, answer.answer)
 
         stepsContainer?.removeAllViews()
@@ -209,7 +224,12 @@ class AnswerCardOverlay(
             return
         }
         try {
-            MathTextRenderer.render(markwon, view, raw, view.textSize, view.currentTextColor)
+            // 公式宽度上限：TextView 已量过就用它的内容宽度，否则按屏宽估一个，
+            // 避免超长公式画到卡片外面被裁掉。
+            val contentWidth = view.width - view.paddingLeft - view.paddingRight
+            val maxWidth = contentWidth.takeIf { it > 0 }
+                ?: (DisplayUtils.screenBounds(context).width() * 0.78f).toInt()
+            MathTextRenderer.render(markwon, view, raw, view.textSize, view.currentTextColor, maxWidth)
         } catch (t: Throwable) {
             Log.e("AnswerCard", "渲染失败，回退纯文本: ${raw.take(80)}", t)
             view.text = raw
@@ -236,24 +256,25 @@ class AnswerCardOverlay(
     )
 
     /**
-     * 追问输入需要窗口能接收输入法焦点。
+     * 追问输入法控制。
      *
-     * 悬浮窗默认带 FLAG_NOT_FOCUSABLE（不抢焦点、不弹输入法），
-     * 所以点输入框时必须临时去掉这个 flag 并 updateViewLayout，
-     * 否则键盘根本不会出现 —— 这是悬浮窗做输入最容易踩的坑。
+     * 窗口从创建起就是可聚焦的（见 ensureView 里的 flags 说明），
+     * 所以这里不再切换 flag，只负责"真的要弹/收键盘"：
+     * 弹键盘必须等这一帧的 layout 走完再请求焦点，否则窗口还没拿到
+     * 输入法焦点，showSoftInput 会静默失败。
      */
     private fun setImeEnabled(enabled: Boolean) {
-        val params = paramsRef ?: return
         val view = root ?: return
-        params.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-            (if (enabled) 0 else WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
-        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-        runCatching { windowManager.updateViewLayout(view, params) }
-
         val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         if (enabled) {
-            followUpInput?.requestFocus()
-            imm?.showSoftInput(followUpInput, InputMethodManager.SHOW_IMPLICIT)
+            followUpInput?.let { input ->
+                input.isFocusableInTouchMode = true
+                input.post {
+                    input.requestFocus()
+                    input.setSelection(input.text.length)
+                    imm?.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+                }
+            }
         } else {
             imm?.hideSoftInputFromWindow(view.windowToken, 0)
             followUpInput?.clearFocus()
@@ -391,8 +412,8 @@ class AnswerCardOverlay(
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
             maxLines = 3
             setPadding(DisplayUtils.dp(context, 8), DisplayUtils.dp(context, 6), DisplayUtils.dp(context, 8), DisplayUtils.dp(context, 6))
-            // 必须先让窗口变成 focusable，EditText 才拿得到焦点（鸡生蛋）。
-            // 触摸事件在非 focusable 窗口里仍会送达，所以从点击事件里切 flag。
+            // 窗口本身可聚焦，点击后 EditText 自然获得焦点；
+            // 这里再补一次 showSoftInput，兜住部分 ROM 不自动弹键盘的情况。
             setOnClickListener { setImeEnabled(true) }
         }
         val sendButton = Button(context).apply {
@@ -421,16 +442,23 @@ class AnswerCardOverlay(
         )
 
         // 贴底、接近满宽：优先保证行宽，避免半个词就被折行
+        // 卡片里有追问输入框，所以窗口本身必须可聚焦（不带 FLAG_NOT_FOCUSABLE），
+        // 否则 EditText 永远拿不到输入法焦点。只要没有视图主动 requestFocus，
+        // 窗口可聚焦也不会凭空调出键盘。
+        // 保留 FLAG_NOT_TOUCH_MODAL：卡片外的触摸仍然落到下层应用。
         val params = WindowManager.LayoutParams(
             bounds.width() - DisplayUtils.dp(context, 24),
             (bounds.height() * 0.58f).toInt(),
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.BOTTOM or Gravity.START
             x = DisplayUtils.dp(context, 12)
             y = DisplayUtils.dp(context, 24)
+            // 键盘弹出时把窗口让到键盘上方，不要盖住输入框
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
+                WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED
         }
 
         minHeightPx = (bounds.height() * 0.30f).toInt()
@@ -488,7 +516,7 @@ class AnswerCardOverlay(
     private companion object {
         const val MATCH_PARENT = ViewGroup.LayoutParams.MATCH_PARENT
         const val WRAP_CONTENT = ViewGroup.LayoutParams.WRAP_CONTENT
-        const val CARD_COLOR = 0xF9FFFFFF.toInt()
+        const val CARD_COLOR = 0xFFFFFFFF.toInt()
         const val HEADER_COLOR = 0xFF1F6FEB.toInt()
         const val LABEL_COLOR = 0xFF8A8A8A.toInt()
         const val QUESTION_COLOR = 0xFF5C5C5C.toInt()

@@ -54,12 +54,24 @@ data class Answer(
     val confidence: Double,
     /** 模型原始输出，解析失败时用来兜底展示 */
     val raw: String,
+    /**
+     * true = 模型没有按 JSON 结构化输出，整段原文直接当回答展示。
+     *
+     * 追问（多轮对话）里模型经常直接写一段 markdown，此时不该显示"置信度 0%"，
+     * 而要换个中性标题、并放宽正文字号。
+     */
+    val plainText: Boolean = false,
 ) {
     /** 置信度偏低时提示用户核对题干。 */
-    val lowConfidence: Boolean get() = confidence in 0.0..0.55
+    val lowConfidence: Boolean get() = !plainText && confidence in 0.0..0.55
 
     /** 复制到剪贴板/分享用的纯文本。 */
     fun toPlainText(): String = buildString {
+        // 追问回复本身就是一段完整的话，不需要再加"答案："这种前缀
+        if (plainText) {
+            append(answer)
+            return@buildString
+        }
         if (question.isNotBlank()) appendLine("题目：$question")
         appendLine("答案：$answer")
         if (steps.isNotEmpty()) {

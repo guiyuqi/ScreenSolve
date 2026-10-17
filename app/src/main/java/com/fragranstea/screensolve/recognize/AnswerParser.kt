@@ -7,8 +7,11 @@ import org.json.JSONObject
 /**
  * 把模型输出解析成 [Answer]。
  *
- * 容错策略：模型偶尔会加上 ```json 包裹或前后缀说明，所以先尝试截取第一个 `{` 到最后一个 `}`；
- * 实在解析不出来就**不报错**，把原文当作答案展示 —— 白屏或报错比展示原始文本更糟。
+ * 容错策略：模型偶尔会给 JSON 加上 ```json 包裹，所以解析前先剥掉代码围栏。
+ * 但**只有当整段内容确实以 `{` 开头时**才尝试 JSON 解析 ——
+ * 早先是"截取第一个 `{` 到最后一个 `}`"就硬解，遇到追问里那种纯 markdown 回复
+ * （`\int_{0}^{1}` 里的花括号也算 `{`）必然抛异常，还在日志里刷一屏堆栈。
+ * 解析不出来就**不报错**，把原文当回答展示 —— 白屏比展示原始文本更糟。
  */
 object AnswerParser {
 
@@ -31,7 +34,7 @@ object AnswerParser {
                     raw = text,
                 )
             } catch (t: Throwable) {
-                Log.w(TAG, "解析 JSON 失败，降级为纯文本", t)
+                Log.w(TAG, "JSON 解析失败，降级为纯文本: ${t.message}")
             }
         }
         return fallback(text)
@@ -47,13 +50,25 @@ object AnswerParser {
         knowledgePoints = emptyList(),
         confidence = 0.0,
         raw = text,
+        plainText = true,
     )
 
+    /**
+     * 只在"整段就是一个 JSON 对象"时返回它。
+     * JSON 允许前导 ```` ```json ```` 围栏，所以先剥围栏再判断首字符。
+     */
     private fun extractJson(text: String): String? {
-        val start = text.indexOf('{')
-        val end = text.lastIndexOf('}')
-        if (start < 0 || end <= start) return null
-        return text.substring(start, end + 1)
+        var body = text
+        if (body.startsWith("```")) {
+            body = body.removePrefix("```json").removePrefix("```JSON").removePrefix("```")
+            val fenceEnd = body.lastIndexOf("```")
+            if (fenceEnd >= 0) body = body.substring(0, fenceEnd)
+            body = body.trim()
+        }
+        if (!body.startsWith("{")) return null
+        val end = body.lastIndexOf('}')
+        if (end <= 0) return null
+        return body.substring(0, end + 1)
     }
 
     private fun JSONArray?.toStringList(): List<String> {

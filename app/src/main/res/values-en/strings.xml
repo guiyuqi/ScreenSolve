@@ -10,7 +10,7 @@
     <string name="notif_text">Floating button is on. Tap it to solve a question.</string>
     <string name="notif_action_stop">Stop</string>
 
-    <string name="main_subtitle">Screenshot question solver · M3 build</string>
+    <string name="main_subtitle">Screenshot question solver · M5 build</string>
     <string name="main_section_permission">Permissions</string>
     <string name="main_status_overlay_on">Display over other apps: granted</string>
     <string name="main_status_overlay_off">Display over other apps: not granted (required to show the button)</string>
@@ -29,7 +29,7 @@
     <string name="main_btn_release_session">Release capture session</string>
 
     <string name="main_section_note">Current progress</string>
-    <string name="main_m1_note">M1 provides: showing the floating button, dragging it, edge snapping on release, tap handling, position memory, and the overlay / notification permission flow.\n\nM2 provides: a long-lived capture session after a single consent, and grabbing the current frame on tap.\n\nM3 provides: drag-to-select region, crop and compress, a DeepSeek vision call, and an answer card (question echo, step-by-step solution, confidence hint).\n\nNext: M4 adds the on-device OCR channel, streaming output and history.</string>
+    <string name="main_m1_note">M1 floating button: show, drag, edge snap, tap handling, position memory, permission flow.\n\nM2 persistent capture: one consent, continuous frames, grab the current frame on tap.\n\nM3 solving pipeline: drag-to-select, crop and compress, DeepSeek vision call, answer card (question echo, steps, confidence).\n\nM4 polish: streaming thinking output, on-device OCR channel (full build), encrypted API key, custom prompt, local history with question images.\n\nM5 follow-ups: ask again inside the answer card with context kept; LaTeX rendered natively.\n\nNext: continue a conversation from history, and a one-shot capture mode that uses less data.</string>
 
     <string name="toast_need_overlay_permission">Please grant the overlay permission first</string>
     <string name="toast_bubble_started">Floating button started</string>
@@ -39,6 +39,7 @@
     <string name="toast_session_ready">Capture session ready. Tap the floating button to grab a frame.</string>
     <string name="toast_session_lost">The system ended the capture session. Consent is needed again.</string>
     <string name="toast_capture_failed">Failed to grab a frame, please retry</string>
+    <string name="toast_follow_up_lost">This question session has ended. Capture the question again.</string>
 
     <string name="region_hint_empty">Drag or adjust corners. Select a single question — multiple questions reduce answer quality</string>
     <string name="region_hint_sized">%1$d×%2$d · drag a corner to fine-tune\nSelect one question (multiple lowers quality)</string>
@@ -51,8 +52,10 @@
     <string name="answer_state_failed">Failed</string>
     <string name="answer_header_subject">%1$s · confidence %2$d%%</string>
     <string name="answer_header_plain">Result</string>
+    <string name="answer_header_reply">Follow-up reply</string>
     <string name="answer_label_question">QUESTION</string>
     <string name="answer_label_answer">ANSWER</string>
+    <string name="answer_label_reply">REPLY</string>
     <string name="answer_label_steps">STEPS</string>
     <string name="answer_step_item">%1$d. %2$s</string>
     <string name="answer_question">Question: %1$s</string>

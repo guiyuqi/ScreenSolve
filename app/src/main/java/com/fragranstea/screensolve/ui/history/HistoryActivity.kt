@@ -175,6 +175,7 @@ class HistoryActivity : AppCompatActivity() {
             body,
             detailView.textSize,
             detailView.currentTextColor,
+            (DisplayUtils.screenBounds(this).width() * 0.78f).toInt(),
         )
 
         val scroll = ScrollView(this).apply {

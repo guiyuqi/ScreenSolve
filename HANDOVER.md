@@ -236,11 +236,19 @@ cp app/build/outputs/apk/lite/debug/app-lite-debug.apk /mnt/c/Users/FragransTea/
 7. 追问回复多半不是 JSON：`AnswerParser` 只在内容以 `{`（或 ```json 围栏）开头时才当 JSON 解析，
    否则走 `plainText` 分支，用"追问回复"标题 + 正常字重，而不是"置信度 0%"。
 
-### 下一个里程碑（M5 收尾 / M6）
-- **历史 → 会话视图**：点历史条目直接进会话（看图、追问、复制），不再用弹窗；
-  继续追问的做法：历史里已存本地题目图 `<id>.jpg`，用 `newVisionSession(jpeg)` 重建会话再回放 turns。
-- **追问入历史**：`HistoryEntry` 加 `turns`（每轮 question/answer），首轮之后每轮追加。
-- 打磨：全屏原图缩放；公式字号略小（22sp 的答案公式偏大）。
+### 已完成（同轮，真机验证）
+- **历史 → 会话视图**：`ui/history/ConversationActivity`。点历史条目直接进会话页：
+  题目图缩略图（点击全屏）、题目/答案/解析、每轮追问、底部输入框可**继续追问**、一键复制全部。
+  继续追问的做法：历史里存了本地题目图，`newVisionSession(jpeg)` 重建会话，再把已有问答回放进去。
+- **追问入历史**：`HistoryEntry.turns`（每轮 question/answer/时间），
+  `HistoryStore.appendTurn`；`OverlayService` 用 `activeHistoryId` 把追问写到同一条记录。
+- 排版收敛：宽公式用 markdown 硬换行（不再分段）并吸收紧跟的纯标点，
+  消掉了"公式后面孤零零一个句号"和"公式后突然一大块空白"。
+
+### 下一个里程碑（M6 候选）
+- 全屏原图支持双指缩放
+- 答案区公式字号略小（22sp 偏大）
+- 发布准备：release 签名、`full` 版 OCR 通道回归、README 使用说明
 
 ### 不要动的东西
 - `capture/` 的常驻抓帧 + `awaitFrameAfter`（抓帧新鲜度是靠这个保证的）

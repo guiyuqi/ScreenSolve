@@ -44,6 +44,7 @@ class MainActivity : AppCompatActivity() {
         toggleButton = findViewById(R.id.btnToggle)
         sessionStatus = findViewById(R.id.tvSessionStatus)
         releaseSessionButton = findViewById(R.id.btnReleaseSession)
+        applyBuildVariantUi()
         findViewById<Button>(R.id.btnOpenSettings).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
@@ -70,6 +71,27 @@ class MainActivity : AppCompatActivity() {
                 OverlayService.releaseSession(this)
                 releaseSessionButton.postDelayed({ refreshUi() }, 300)
             }
+        }
+    }
+
+    /**
+     * 正式包不该出现"当前进度""调试版 x.y.z"这类开发字样。
+     * 靠 `R.bool.is_debug_build`（main 里 false，src/debug 覆盖为 true）切换，
+     * 而不是在代码里判断 BuildConfig —— release 版会把整段说明连同字符串一起裁掉。
+     */
+    private fun applyBuildVariantUi() {
+        val isDebugBuild = resources.getBoolean(R.bool.is_debug_build)
+        findViewById<View>(R.id.devNotes).visibility =
+            if (isDebugBuild) View.VISIBLE else View.GONE
+
+        val subtitle = findViewById<TextView>(R.id.tvSubtitle)
+        subtitle.text = if (isDebugBuild) {
+            val version = runCatching {
+                packageManager.getPackageInfo(packageName, 0).versionName
+            }.getOrNull().orEmpty()
+            getString(R.string.main_subtitle_debug, version)
+        } else {
+            getString(R.string.main_subtitle)
         }
     }
 

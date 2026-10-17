@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      是否是开发构建。正式包（release）为 false：
+      主界面不显示"当前进度"这类开发说明，副标题也不带调试版本号。
+      debug 包由 app/src/debug/res/values/bools.xml 覆盖为 true。
+    -->
+    <bool name="is_debug_build">false</bool>
+</resources>

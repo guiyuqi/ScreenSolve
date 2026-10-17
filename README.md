@@ -1,0 +1,77 @@
+# ScreenSolve · 搜题助手
+
+一个 Android 悬浮球截图搜题工具：**在任何 App 上点一下悬浮球 → 框选一道题 → 直接出答案和分步解析**。
+答案里的公式是真 LaTeX 渲染（不是一堆反斜杠），还支持在答案卡片里继续追问、从历史记录里接着聊。
+
+> 需要自备 [DeepSeek](https://platform.deepseek.com/) API Key（应用内填写，只存在你手机本地）。
+
+## 两个版本，二选一装
+
+| 版本 | 体积 | 识题方式 | 适合 |
+|---|---|---|---|
+| **lite** | 约 1.8 MB | 把框选图直接交给多模态模型 | 日常用，启动快、装包小 |
+| **full** | 约 16 MB | 额外带 ML Kit 中文离线 OCR，可只发文字不发原图 | 想省流量 / 不想把原图发出去 |
+
+体积差全部来自 ML Kit。**注意：做数学题请用 lite（视觉直传）**——OCR 会把公式的运算符和积分上下限认丢，
+full 版的 OCR 通道更适合纯文字题。
+
+## 安装
+
+1. 拷 `ScreenSolve-lite-release.apk` 到手机，点安装（国产 ROM 可能要求"允许安装未知来源应用"）。
+2. 打开应用 → 按页面提示授予 **悬浮窗权限**（Android 13+ 可能还要通知权限）。
+3. 点「打开设置」→ 粘贴 DeepSeek API Key → 保存。Key 用 Android Keystore 加密存储，不落明文。
+4. 回到主界面点「启动悬浮球」。
+
+> 换版本 / 换签名安装时必须先卸载旧版，否则会提示"应用未安装"。卸载会清掉已存的 Key 和历史记录。
+
+## 怎么用
+
+- **搜题**：点悬浮球 → 首次会请求一次录屏授权（一次授权后就会持续可用，不用每次点）→
+  拖四角框住**一道题**→ 点「识别这道题」→ 答案卡片弹出。
+- **追问**：答案卡片底部输入框里接着问（比如"第二步再讲讲"），模型带着题目上下文回答。
+- **看原图**：卡片会回显识别到的题干，错了说明框偏了；历史里点缩略图可全屏看图并双指缩放。
+- **历史**：最近 10 次，点进去是会话视图，能看图、能继续追问、能一键复制全部。
+- **调参**：设置页可切识题通道、开"深度思考"（更准更慢）、改提示词（比如要求"只给答案不要解析"）。
+
+框选建议：**只框一道题**，多题同屏会明显降低质量（模型注意力被分散）。
+
+## 隐私
+
+- API Key：Android Keystore AES-256-GCM 加密后存在应用私有目录，**只有密文**；应用不联网发送它。
+- 题目图：历史记录里的题目图只存在应用私有目录（`filesDir/history/`），随卸载消失，不上传任何地方。
+- 截图：只有你点「识别这道题」时，**框选区域**才会发给 DeepSeek 用于识题；lite 版发图，full 版 OCR 通道只发识别出的文字。
+- 应用不申请通讯录/位置/存储等无关权限，也没有第三方统计 SDK。
+
+## 从源码构建
+
+需要 JDK 21 + Android SDK 36（编译工具链细节见 `TOOLCHAIN.md`）。
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export ANDROID_HOME=/opt/android-sdk
+
+./gradlew assembleLiteDebug      # 调试包（主界面会显示开发进度区块）
+./gradlew assembleLiteRelease    # 正式包（不带任何构建/里程碑字样）
+./gradlew assembleFullRelease    # full 版正式包
+```
+
+- release 签名配置从仓库根目录的 `keystore.properties` 读（配合 `keystore/screensolve-release.jks`），
+  两者都**不在仓库里**。缺少它们时 release 包不签名，但仍能编译。
+- 想在不卸载已装 debug 包的前提下验证混淆后的 release 包：
+  `./gradlew assembleFullRelease -PsmokeTest`，包名会变成 `...screensolve.smoke`，可与 debug 版共存。
+
+## 目录
+
+| 文件 | 内容 |
+|---|---|
+| `HANDOVER.md` | 交接文档：进度、代码地图、已验证项、踩坑清单 |
+| `ARCHITECTURE.md` | 架构设计：抓帧、选区、识题、渲染、错误处理 |
+| `TOOLCHAIN.md` | 本机工具链与镜像配置（WSL2 环境踩过的坑） |
+| `ENV_CHECK.md` | 环境体检报告 |
+
+## 已知限制
+
+- 只支持 arm64-v8a（`abiFilters`），老旧 32 位机型装不了。
+- 需要 Android 10（API 29）及以上。
+- 公式渲染基于 jlatexmath，极少数模型自造的非法 LaTeX 命令会自动降级成源码文本（不会白屏）。
+- 一次只保证一道题的质量。

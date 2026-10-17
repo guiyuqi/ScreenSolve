@@ -1,9 +1,19 @@
 # 交接文档（HANDOVER）
 
 > 面向"下一个接手的人/会话"。读完这份就能无缝继续，不必回翻聊天记录。
-> 最后更新：M4 完成、M5 待开发时。
+> 最后更新：v1.0.0 发布（M1–M5 全部完成、正式签名出包）。
 
 ---
+
+## 0. 发布状态（1.0.0）
+
+- **v1.0.0（versionCode 10）已发布**：`lite` 1.79 MB / `full` 16.2 MB，均为 V2 签名。
+- 正式包与调试包的界面差异由 `R.bool.is_debug_build` 控制（`app/src/debug/res/values/bools.xml` 覆盖为 true）：
+  **"当前进度"区块、带版本号的调试版副标题只在 debug 包出现**，release 包副标题只有「悬浮窗截图搜题」。
+- 发布前自查已过：manifest 无 `debuggable`、`allowBackup=false`、除启动页外无导出组件、
+  权限只有悬浮窗/前台服务/通知/网络（full 版多一个 ML Kit 需要的 ACCESS_NETWORK_STATE）、
+  不打印任何 Key 内容、release 包真机全链路（识题→公式→追问→历史→缩放）已验收。
+- 使用说明见 `README.md`。
 
 ## 1. 项目是什么
 

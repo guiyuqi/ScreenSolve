@@ -18,6 +18,7 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/tvSubtitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
@@ -82,16 +83,25 @@
             style="@style/ActionButton"
             android:text="@string/main_btn_history" />
 
-        <TextView
-            style="@style/SectionTitle"
-            android:text="@string/main_section_note" />
-
-        <TextView
+        <!-- 开发说明：只有 debug 包显示（运行时按 R.bool.is_debug_build 控制） -->
+        <LinearLayout
+            android:id="@+id/devNotes"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:lineSpacingExtra="4dp"
-            android:text="@string/main_m1_note"
-            android:textSize="14sp" />
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                style="@style/SectionTitle"
+                android:text="@string/main_section_note" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:lineSpacingExtra="4dp"
+                android:text="@string/main_m1_note"
+                android:textSize="14sp" />
+        </LinearLayout>
 
     </LinearLayout>
 

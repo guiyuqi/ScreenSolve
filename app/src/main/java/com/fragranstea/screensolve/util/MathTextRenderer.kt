@@ -4,9 +4,10 @@ import android.graphics.Canvas
 import android.graphics.ColorFilter
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
+import android.graphics.Paint
 import android.text.Spannable
 import android.text.SpannableStringBuilder
-import android.text.style.ImageSpan
+import android.text.style.ReplacementSpan
 import android.util.Log
 import android.widget.TextView
 import io.noties.markwon.Markwon
@@ -139,7 +140,7 @@ object MathTextRenderer {
                 out.replace(start, start + 1, latex)   // 画不出来就保留源码
             } else {
                 out.setSpan(
-                    ImageSpan(drawable, ImageSpan.ALIGN_BASELINE),
+                    BaselineMathSpan(drawable),
                     start,
                     start + 1,
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE,
@@ -159,6 +160,57 @@ object MathTextRenderer {
     private val BAD_D_COMMAND = Regex("\\\\d([a-zA-Z])(?![a-zA-Z])")
 
     private fun sanitize(latex: String): String = latex.replace(BAD_D_COMMAND) { m -> "d" + m.groupValues[1] }
+
+    /**
+     * 公式用的 ReplacementSpan：**底边贴基线**，并且强制把行高撑到能装下图片。
+     *
+     * 为什么不用 `ImageSpan(ALIGN_BASELINE)`：系统那套只有在 `bounds.top < 0` 时才去扩
+     * `FontMetrics`，而我们给 drawable 的 bounds 一直是 `(0,0,w,h)`，于是"行高不变、图片往上顶"，
+     * 单行答案（比如答案就是 `2`）顶部会被父布局裁掉一截。这里直接在 getSize 里把
+     * `fm.ascent/top` 压到 `-h`，行高必然够用；draw 时再从基线往上画。
+     */
+    private class BaselineMathSpan(private val drawable: Drawable) : ReplacementSpan() {
+
+        override fun getSize(
+            paint: Paint,
+            text: CharSequence,
+            start: Int,
+            end: Int,
+            fm: Paint.FontMetricsInt?,
+        ): Int {
+            val width = drawable.intrinsicWidth
+            val height = drawable.intrinsicHeight
+            if (fm != null && height > 0) {
+                // 图片比字体本身高时，用图片高度当上行空间，保证不被裁
+                fm.ascent = minOf(fm.ascent, -height)
+                fm.top = minOf(fm.top, -height)
+                fm.descent = maxOf(fm.descent, 0)
+                fm.bottom = maxOf(fm.bottom, 0)
+            }
+            return width
+        }
+
+        override fun draw(
+            canvas: Canvas,
+            text: CharSequence,
+            start: Int,
+            end: Int,
+            x: Float,
+            top: Int,
+            baseline: Int,
+            bottom: Int,
+            paint: Paint,
+        ) {
+            val width = drawable.intrinsicWidth
+            val height = drawable.intrinsicHeight
+            if (width <= 0 || height <= 0) return
+            canvas.save()
+            canvas.translate(x, (baseline - height).toFloat())
+            drawable.setBounds(0, 0, width, height)
+            drawable.draw(canvas)
+            canvas.restore()
+        }
+    }
 
     private fun buildMath(latex: String, textSizePx: Float, color: Int, maxWidthPx: Int): Drawable? = try {
         val inner = JLatexMathDrawable.builder(sanitize(latex))

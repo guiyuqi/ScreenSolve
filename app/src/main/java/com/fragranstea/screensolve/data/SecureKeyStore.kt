@@ -28,8 +28,11 @@ class SecureKeyStore(context: Context) {
 
     fun save(apiKey: String) {
         val trimmed = apiKey.trim()
+        // 空串**绝不**删除已有 Key：删除只有一条路径，就是用户显式点"清除已保存的 KEY"。
+        // 之前这里写的是 clear()，把"删除"藏进了一个看起来像"写入"的方法里，
+        // 任何调用方传空串都会静默抹掉用户的配置 —— 这种 API 形状本身就是 bug 温床。
         if (trimmed.isEmpty()) {
-            clear()
+            Log.w(TAG, "save() 收到空 Key，忽略（清除请走 clear()）")
             return
         }
         val cipher = Cipher.getInstance(TRANSFORMATION)

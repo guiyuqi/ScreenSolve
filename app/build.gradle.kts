@@ -71,6 +71,14 @@ android {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
             }
+
+            // 冒烟测试开关：./gradlew assembleFullRelease -PsmokeTest
+            // 会给包名加 .smoke 后缀，于是能和已装的 debug 包共存 ——
+            // 目的是验证"R8 混淆后的 release 包"本身能不能启动，不用先卸载丢数据。
+            if (project.hasProperty("smokeTest")) {
+                applicationIdSuffix = ".smoke"
+                versionNameSuffix = "-smoke"
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

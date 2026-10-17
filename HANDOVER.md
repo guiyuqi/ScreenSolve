@@ -90,21 +90,25 @@ app/src/main/java/com/fragranstea/screensolve/
 - **full 版 OCR 通道真机回归**：ML Kit 正常出字（51 字），但**数学公式会丢运算符/上下限**
   （`(3x²+2x)dx` 被识别成 `(3x 2x) dx`），模型据此给出 20% 置信度的"无法识别"并说明缺什么 —— 行为正确，
   也印证了"数学题走视觉直传"这个默认选择是对的
+- R8 keep 规则（`app/proguard-rules.pro`）：jlatexmath / Markwon 整包保留不混淆 ——
+  它们靠类名与 assets 里的字体名工作，混淆后公式会画不出来。代价是 lite release 从 1.48 → 1.79 MB，
+  这个交换值得：公式渲染是核心功能，300 KB 换"一定不炸"。
+- release 包做过冒烟验证（`-PsmokeTest` 加 `.smoke` 包名后缀，与 debug 包共存）：
+  R8 混淆后的 release 包能正常启动、主界面渲染正常。**但"识题→渲染"整链路要 API Key，
+  换签名会卸载旧包、清掉已存 Key，所以真机全链路验证需要重新粘一次 Key。**
 - release 签名：`assembleLiteRelease` / `assembleFullRelease` 均为 V2 签名（CN=ScreenSolve），
-  lite 1.48 MB / full 15.2 MB
-- lite release 1.46 MB / full release 14.5 MB（差异只有 ML Kit）
+  最终体积 **lite 1.79 MB / full 16.2 MB**（差额全在 ML Kit）
 
 ### 已知问题（按优先级）
-1. **历史详情还是弹窗**，且"查看题目图"返回后会回到列表（反逻辑）。目标：历史直接进会话视图
-   （看图、追问、复制），见 §9「下一个里程碑」。
-2. **追问没有入历史**：现在只有首轮问答落库，追问内容关掉卡片就没了。
-3. **多题同屏会降低质量**。选区提示已加"建议只框一道题"，提示词要求多题时只答最完整的一道。
-4. **全屏原图不能缩放**（未做，低优先级）。
-5. 排版打磨：答案区公式偏大（22sp）；极少数情况下公式后的"。"会单独占一行。
+1. **多题同屏会降低质量**。选区提示已加"建议只框一道题"，提示词要求多题时只答最完整的一道。
+2. **full 版 OCR 对数学公式识别率低**（见上），别把它当数学题主通道；它的价值在"不发原图、省 token"。
+3. 排版打磨：极少数情况下公式后的"。"仍会单独占一行（宽公式已改硬换行 + 吸收纯标点，多数场景已解决）。
+4. **debug ↔ release 不能覆盖安装**（签名不同），切换必须 `adb uninstall`，
+   会清掉已存 API Key 与历史 —— Android 机制，不是 bug。
 
 ---
 
-## 5. M5：多轮追问（下一步实现方案）
+## 5. M5：多轮追问（设计方案留档，已实现）
 
 ### 5.1 目标
 在**同一个答案卡片**里继续提问，模型能带着"首轮题目图 + 已得答案"的上下文回答。
@@ -167,10 +171,13 @@ export ANDROID_HOME=/opt/android-sdk
 cd ~/dsh-workspace/ScreenSolve
 ./gradlew assembleLiteDebug        # 默认版本（只视觉）
 ./gradlew assembleFullDebug        # 含离线 OCR
-./gradlew assembleLiteRelease      # 1.48 MB（已签名）
+./gradlew assembleLiteRelease      # 1.79 MB（已签名）
 
 # release 签名：仓库根部的 keystore.properties + keystore/ 一起决定（两者都不进 git）
 # 缺失时 release 包不签名，但依然能编译 —— 换个机器 clone 下来不会卡住
+# 冒烟测试（不覆盖已装的 debug 包）：
+./gradlew assembleFullRelease -PsmokeTest   # 包名变成 ...screensolve.smoke
+
 # 证书备份在 Windows 侧：C:\Users\FragransTea\ScreenSolve-签名备份\
 # 丢了它就只能换包名重发（老用户数据全丢），务必留好
 ```

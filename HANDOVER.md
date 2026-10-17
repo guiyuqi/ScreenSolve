@@ -76,23 +76,22 @@ app/src/main/java/com/fragranstea/screensolve/
 ### 已验证（真机 HONOR DIO-AN00 / Android 12 / 1080×2388）
 - 一次授权后连续抓帧，`fresh=true`；滚动+静置 8 秒后抓帧与真实屏幕逐像素差异 2.7%
 - 拖四角改选区（`951×1815 → 928×1681`）；答案卡片高度锚点（窗口 `1385 → 1586px`）
-- 严格 LaTeX 输出 + 端上渲染：`$\frac{8}{3}$`、`$\int_{0}^{2}$`、`1-e^{-1}` 均正确排版
+- 严格 LaTeX 输出 + 端上渲染：分式、定积分（上下限）、`$\frac{8}{3}$`、`1-e^{-1}` 均正确排版
+- **M5 追问**：卡片内输入行可见 → 点击弹出键盘 → 发送 → "追问回复"渲染，上下文正确
+  （详见 §9）
+- 渲染细节：markdown 加粗正常（不再出现字面量 `**`）、`$$ / \[ / \( / $` 四种定界符都能渲染、
+  超宽公式自动缩放或改块级排版（不再被右边界裁掉）
 - Key 加密落盘（只有密文）；改其它设置保存**不会**覆盖 Key
 - 历史详情 LaTeX 渲染正常；全屏看原图可打开
 - lite release 1.37 MB / full release 14.5 MB（差异只有 ML Kit）
 
 ### 已知问题（按优先级）
-1. **思考结束时会输出一堆 `null`**（用户反馈，不影响使用）
-   根因：Android `org.json` 的 `optString` 遇到 JSON `null` 会返回字符串 `"null"`。
-   流结束时 DeepSeek 可能发 `delta.reasoning_content = null` → 被当成文本拼进思考显示。
-   修复：取 `reasoning_content` 时判断 `delta.isNull("reasoning_content")`，
-   或过滤 `"null"` 字符串；`chatCompletionStream` 里两处 `optString` 都要处理。
-2. **历史详情是弹窗、且"查看题目图"返回后会回到列表**（反逻辑）。用户期望：**从历史直接进入会话视图**，
-   在里面看图、追问、复制等一切操作（见 §5.3）。
-3. **多题同屏会降低质量**。已加提示词要求逐题作答，但用户实测质量仍不如单题。
-   建议：选区界面提示"建议只框一道题"；提示词改为"多题时只答最完整的一道并在 conclusion 说明"。
+1. **历史详情还是弹窗**，且"查看题目图"返回后会回到列表（反逻辑）。目标：历史直接进会话视图
+   （看图、追问、复制），见 §9「下一个里程碑」。
+2. **追问没有入历史**：现在只有首轮问答落库，追问内容关掉卡片就没了。
+3. **多题同屏会降低质量**。选区提示已加"建议只框一道题"，提示词要求多题时只答最完整的一道。
 4. **全屏原图不能缩放**（未做，低优先级）。
-5. 答案卡片里的分式偏大（22sp 的公式抢戏）；公式后紧跟的"。"会被挤到下一行（排版打磨项）。
+5. 排版打磨：答案区公式偏大（22sp）；极少数情况下公式后的"。"会单独占一行。
 
 ---
 
@@ -201,38 +200,49 @@ cp app/build/outputs/apk/lite/debug/app-lite-debug.apk /mnt/c/Users/FragransTea/
 
 ## 8. 立刻能做的下一步（按顺序）
 
-1. **修 `null` 输出**（§4.1，5 行代码）
-2. **选区提示单题**：`region_hint_*` 文案加"建议只框一道题"；提示词多题时只答最完整的一道
-3. **M5 多轮追问**（§5，先做悬浮卡片里的追问，再做历史 → 会话视图）
-4. 历史详情从弹窗改为"进入会话视图"（消除"查看图片后回到目录"的反逻辑）
-5. 图片缩放、公式字号微调（打磨项）
+1. **历史 → 会话视图**（消除"看图后回到目录"的反逻辑；复用卡片会话模型）
+2. **追问入历史**（`HistoryEntry` 加 `turns`），会话视图里能看到完整问答
+3. 打磨：全屏原图缩放、公式字号、孤立标点
+4. 发布准备：签名 release、`full` 版 OCR 通道回归、README 使用说明
 
 ---
 
 ## 9. M5 当前状态（重要，接手先看这里）
 
-### 已完成（代码已写、编译通过、已装机）
-- `recognize/SolveSession.kt`：会话持有 API 的 messages 数组（system → user(首图/OCR文本) → assistant(原始JSON) → 追问…），
-  assistant 存**模型原始输出**，超过 5 轮追问后丢弃最早的追问（保留首轮三条锚点）
-- `SolveEngine`：`newVisionSession / newTextSession / followUp(messages, onReasoning)`
-- `OverlayService`：识题改走会话（`activeSession`），成功后 `appendAssistant(answer.raw)`；
-  新增 `handleFollowUp(question)`（流式 + 思考显示）；释放会话时清空 `activeSession`
-- `AnswerCardOverlay`：底部加追问输入行（EditText + 追问按钮），有答案后才显示；
-  `setImeEnabled()` 在点击时切换 `FLAG_NOT_FOCUSABLE` 并 `updateViewLayout`（悬浮窗做输入的关键）
-- 字符串：`answer_follow_up_hint` / `answer_follow_up_send`
+### 已完成并**真机验证**（HONOR DIO-AN00 / Android 12）
+卡片内多轮追问全流程通了：
+1. 答案卡片底部"接着问点什么…"输入行**可见**（上一轮"输入行不显示"是自己看错截图机位，
+   `dumpsys window windows` 里 `mAttrs=(36,72)(1008x1385)`、`frame=[36,931][1044,2316]` 都是对的）
+2. 点输入框弹出键盘：`mServedView=android.widget.EditText`、`mInputShown=true`；
+   卡片按 `ADJUST_RESIZE` 让位到键盘上方（`frame` 变 `[36,99][1044,1484]`），输入行始终贴键盘
+3. 输入 → 点「追问」→ 流式 → 卡片显示"追问回复"，上下文（首轮题目图 + 已生成答案）保留
+4. 日志证据：`追问：why do we subtract F0 from F1` / `追问成功 answer=因为定积分只统计区间 [a,b] 内的净增量…`
 
-### 未解决（下一轮第一件事）
-**追问输入行在真机上没出现**：`showAnswer` 里确实执行了 `followUpRow?.visibility = View.VISIBLE`
-（代码已确认），但截图里卡片在"复制答案/关闭"按钮下方就结束了。
-怀疑点（按可能性排序）：
-1. 卡片窗口高度不足，输入行被排到窗口可视区之外被裁掉 —— 先把卡片默认高度从 0.58 提到 0.70 试
-2. `inputRow` 的测量高度为 0（EditText 用了 `LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)` 的 width weight）
-3. 卡片参数高度与实际不符（截图里卡片看起来只有 ~0.45 屏高，而不是 0.58，需要确认 `params.height` 实际值）
+### 这一轮修掉的关键坑（别再踩）
+1. **悬浮窗想收输入法焦点，必须让窗口本身可聚焦**。
+   原来在 EditText 的 `setOnClickListener` 里临时去掉 `FLAG_NOT_FOCUSABLE` 再 `requestFocus()`，
+   同帧执行太早，键盘不弹。现在**创建卡片窗口时就不带 `FLAG_NOT_FOCUSABLE`**（保留 `NOT_TOUCH_MODAL`，
+   卡片外触摸仍落到下层应用），`softInputMode = ADJUST_RESIZE | STATE_UNCHANGED`，点一下自然弹键盘。
+2. **`ImageSpan` 不会给传入的 Drawable 设 bounds**。`DynamicDrawableSpan.getSize()` 取的是
+   `drawable.bounds.right`，bounds 为 0 → 公式占位宽度 0 → 屏幕上只剩空白（且不报错）。
+   包装 Drawable 时**必须在 init 里 `setBounds(0,0,w,h)`**（`util/MathTextRenderer.FittedDrawable`）。
+   旧代码"能显示"只是因为 `JLatexMathDrawable` 自己带了初始 bounds。
+3. **markdown 不能按公式切开分段渲染**。`**加粗 $x$ 加粗**` 被切成两段后 `**` 配对失败，
+   屏幕上出现字面量 `**`。现在先把公式换成 `@@MATH0@@` token → 整段交给 Markwon → 再把 token 换成 ImageSpan。
+4. **Markdown 里单个 `\n` 是软换行**（渲染成空格），块级公式前后必须用两个 `\n` 才能真正独立成段。
+5. **ReplacementSpan 跟在文字后面时换行不可靠**，宽公式会冲出控件右边界被裁。
+   规则：公式自身宽度 > 整行 40% 就改按块级（独占一段）排版（`MathTextRenderer.BLOCK_RATIO`）。
+6. **`setTypeface(当前粗体实例, NORMAL)` 在部分 ROM 上不生效**，要直接 `typeface = Typeface.DEFAULT`。
+7. 追问回复多半不是 JSON：`AnswerParser` 只在内容以 `{`（或 ```json 围栏）开头时才当 JSON 解析，
+   否则走 `plainText` 分支，用"追问回复"标题 + 正常字重，而不是"置信度 0%"。
 
-调试建议：用 `dumpsys window windows` 读卡片窗口的 `mAttrs=(...)(宽x高)`，与 `(bounds.height()*0.58)` 对比；
-再在 `showAnswer` 里打一行 `Log.i` 输出 `followUpRow?.height` 和 `root?.height`。
+### 下一个里程碑（M5 收尾 / M6）
+- **历史 → 会话视图**：点历史条目直接进会话（看图、追问、复制），不再用弹窗；
+  继续追问的做法：历史里已存本地题目图 `<id>.jpg`，用 `newVisionSession(jpeg)` 重建会话再回放 turns。
+- **追问入历史**：`HistoryEntry` 加 `turns`（每轮 question/answer），首轮之后每轮追加。
+- 打磨：全屏原图缩放；公式字号略小（22sp 的答案公式偏大）。
 
-### 还没做
-- 历史点击 → 进入会话视图（复用同一套会话模型，见 §5.3）
-- 追问结果入历史（现在只有首轮落库）
-- 图片缩放、公式字号微调
+### 不要动的东西
+- `capture/` 的常驻抓帧 + `awaitFrameAfter`（抓帧新鲜度是靠这个保证的）
+- `data/SecureKeyStore`：`save("")` 必须保持 no-op，`load()` 失败绝不自动清空
+- 状态渲染入口 `showLoading/showAnswer/showError` 都负责 `followUpRow` 的可见性

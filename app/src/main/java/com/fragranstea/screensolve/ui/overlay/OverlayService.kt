@@ -369,10 +369,18 @@ class OverlayService :
 
             val outcome = solveEngine.solveVision(jpeg)
             when (outcome) {
-                is SolveOutcome.Success -> Log.i(
-                    TAG,
-                    "识题成功 answer=${outcome.answer.answer.take(40)} steps=${outcome.answer.steps.size} conf=${outcome.answer.confidence}",
-                )
+                is SolveOutcome.Success -> {
+                    // 题干原文也打出来：这是判断"模型有没有读错题"的唯一自动化手段
+                    // （悬浮窗里的文字 uiautomator 抓不到，日志才是可核对的证据）
+                    Log.i(
+                        TAG,
+                        "识题成功 answer=${outcome.answer.answer.take(60)} steps=${outcome.answer.steps.size} conf=${outcome.answer.confidence}",
+                    )
+                    Log.i(TAG, "识别题干=${outcome.answer.question.take(120)}")
+                    outcome.answer.steps.forEachIndexed { index, step ->
+                        Log.i(TAG, "步骤${index + 1}=${step.take(120)}")
+                    }
+                }
                 is SolveOutcome.Failure -> Log.w(TAG, "识题失败 error=${outcome.error} detail=${outcome.detail}")
             }
             onMain {

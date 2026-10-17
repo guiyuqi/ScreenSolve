@@ -13,6 +13,11 @@
 - 发布前自查已过：manifest 无 `debuggable`、`allowBackup=false`、除启动页外无导出组件、
   权限只有悬浮窗/前台服务/通知/网络（full 版多一个 ML Kit 需要的 ACCESS_NETWORK_STATE）、
   不打印任何 Key 内容、release 包真机全链路（识题→公式→追问→历史→缩放）已验收。
+- GitHub Release 已发布：<https://github.com/guiyuqi/ScreenSolve/releases/tag/v1.0.0>
+  资产名 `ScreenSolve-lite-release.apk` / `ScreenSolve-full-release.apk`，
+  平台上记录的 sha256 与本地产物一致（lite `15ca5137…be3a9`、full `fa574ccd…b632f57f`）。
+- 发布脚本：`scripts/publish-release.sh`（`GITHUB_TOKEN=... ./scripts/publish-release.sh`，
+  需要 fine-grained token 的 **Contents: Read and write**；token 只经环境变量传递，不落文件）。
 - 使用说明见 `README.md`。
 
 ## 1. 项目是什么

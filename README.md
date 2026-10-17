@@ -5,6 +5,8 @@
 
 > 需要自备 [DeepSeek](https://platform.deepseek.com/) API Key（应用内填写，只存在你手机本地）。
 
+**下载安装包**：[GitHub Releases](https://github.com/guiyuqi/ScreenSolve/releases/latest)（`ScreenSolve-lite-release.apk` / `ScreenSolve-full-release.apk`）
+
 ## 两个版本，二选一装
 
 | 版本 | 体积 | 识题方式 | 适合 |

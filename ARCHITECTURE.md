@@ -532,6 +532,25 @@ WSL 里没有 USB 直通、也没有 `/dev/kvm`（详见 `ENV_CHECK.md`），所
 2. **预览卡片遮挡悬浮球** —— 卡片原为 86% 宽居中，正好盖住右侧悬浮球，导致"再抓一次"点在卡片上没反应。改为 72% 宽并停靠在悬浮球的**另一侧**。
 3. **预览窗口泄漏** —— `show()` 里调用 `remove()`，而 `remove()` 会回调 `onClosed` 把宿主的引用置空，结果每次抓帧都残留一个悬浮窗（实测同时存在 2 个卡片）。改为内部 `detach()`（不通知宿主）+ 用户关闭走 `remove()`。修复后连续 3 次抓帧窗口数稳定为 2（悬浮球 + 1 预览）。
 
+### M3 验收（代码路径全部跑通，只差真实 Key 的 200 响应）
+全流程由 adb 驱动完成（`input tap/swipe` + `uiautomator dump` 定位控件），日志为证据：
+
+| 项 | 结果 / 证据 |
+|---|---|
+| 悬浮球 → 授权 → 选区 | ✅ `MediaProjectionPermissionActivity` 弹出并确认 → `RegionSelectActivity` 前台 |
+| 拖框 → 确认 → 裁剪压缩 | ✅ 日志 `开始识题 jpeg=43889 bytes`（1080×2388 全屏框选后 43 KB） |
+| **请求真的到达服务端** | ✅ 用假 Key 得到服务端真实回包：`INVALID_KEY / Authentication Fails, Your api key: **** is invalid (request_id: 5a436f9c-...)`。服务端返回的是 **401 而不是 400**，说明接口地址、鉴权头、JSON 请求体结构、TLS 链路全部正确 |
+| 未填 Key 的分支 | ✅ `识题失败 error=NO_API_KEY`，卡片显示"回主界面 → 设置填入 Key" |
+| Key 加密落盘 | ✅ `run-as ... cat shared_prefs/secure_settings.xml` 只有 `<string name="api_key_blob">/9L9bj…==</string>`（12 字节 IV + GCM 密文），**无 `sk-` 明文** |
+| 清除 Key | ✅ 点"清除已保存的 KEY" 后文件变成 `<map />`，界面回到"未设置" |
+| 会话跨 UI 导航存活 | ✅ 折腾设置页/选区/卡片期间 `frame` 累加到 552，始终 `fresh=true`，未再弹授权 |
+
+**未验证**：真实 Key 的 200 响应（需要用户自己的 Key，不经过 agent）—— 这是唯一剩余项。
+
+### M3 暴露的两个 UX 问题（待优化，不影响功能）
+1. **答案卡片会盖住应用自身 UI**：卡片是 72%×60% 的居中悬浮窗，覆盖主界面的"设置"按钮等控件，用户需先关卡片才能点下面。可选改进：点击卡片外部关闭 / 应用回到前台时自动收起。
+2. **设置页软键盘遮挡"保存"按钮**：输入 Key 后按钮被键盘盖住，需手动收起键盘或滚动。改进：输入完成自动收键盘，或把保存按钮固定到底部。
+
 ### ⚠️ 本机未覆盖、换机需重验的路径
 测试机是 Android 12，以下「仅 Android 13/14+ 生效」的代码路径**未被真机验证**（代码已实现，但没跑过）：
 - Android 14+：`startForeground` 带 `mediaProjection` 类型的**顺序要求**（先 startForeground 再 getMediaProjection）

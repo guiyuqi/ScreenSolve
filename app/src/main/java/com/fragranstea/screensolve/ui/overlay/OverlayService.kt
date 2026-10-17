@@ -33,6 +33,7 @@ import com.fragranstea.screensolve.data.BubblePositionStore
 import com.fragranstea.screensolve.data.SecureKeyStore
 import com.fragranstea.screensolve.data.SettingsStore
 import com.fragranstea.screensolve.recognize.SolveEngine
+import com.fragranstea.screensolve.recognize.SolveError
 import com.fragranstea.screensolve.recognize.SolveOutcome
 import com.fragranstea.screensolve.ui.consent.ConsentActivity
 import com.fragranstea.screensolve.ui.main.MainActivity
@@ -356,10 +357,24 @@ class OverlayService :
                 } finally {
                     if (scaled !== cropped) scaled.recycle()
                 }
+            } catch (t: Throwable) {
+                // 图片处理出问题也必须让用户看到反馈，而不是卡在"正在识题"
+                Log.e(TAG, "裁剪/压缩失败", t)
+                onMain { card.showError(SolveError.UNKNOWN, t.message) }
+                return@Thread
             } finally {
                 cropped.recycle()
             }
+            Log.i(TAG, "开始识题 jpeg=${jpeg.size} bytes")
+
             val outcome = solveEngine.solveVision(jpeg)
+            when (outcome) {
+                is SolveOutcome.Success -> Log.i(
+                    TAG,
+                    "识题成功 answer=${outcome.answer.answer.take(40)} steps=${outcome.answer.steps.size} conf=${outcome.answer.confidence}",
+                )
+                is SolveOutcome.Failure -> Log.w(TAG, "识题失败 error=${outcome.error} detail=${outcome.detail}")
+            }
             onMain {
                 when (outcome) {
                     is SolveOutcome.Success -> card.showAnswer(outcome.answer)

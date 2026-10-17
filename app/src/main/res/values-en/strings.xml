@@ -10,7 +10,7 @@
     <string name="notif_text">Floating button is on. Tap it to solve a question.</string>
     <string name="notif_action_stop">Stop</string>
 
-    <string name="main_subtitle">Screenshot question solver · M2 build</string>
+    <string name="main_subtitle">Screenshot question solver · M3 build</string>
     <string name="main_section_permission">Permissions</string>
     <string name="main_status_overlay_on">Display over other apps: granted</string>
     <string name="main_status_overlay_off">Display over other apps: not granted (required to show the button)</string>

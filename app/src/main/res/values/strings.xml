@@ -18,7 +18,7 @@
     <string name="notif_action_stop">关闭</string>
 
     <!-- 主界面 -->
-    <string name="main_subtitle">悬浮窗截图搜题 · M2 版本</string>
+    <string name="main_subtitle">悬浮窗截图搜题 · M3 版本</string>
     <string name="main_section_permission">权限状态</string>
     <string name="main_status_overlay_on">悬浮窗权限：已授权</string>
     <string name="main_status_overlay_off">悬浮窗权限：未授权（必须授权才能显示悬浮球）</string>

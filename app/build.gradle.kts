@@ -38,4 +38,7 @@ dependencies {
     // 所以锁 1.18.0（minCompileSdk=36）。
     implementation("androidx.core:core-ktx:1.18.0")      // ContextCompat / ServiceCompat
     implementation("androidx.appcompat:appcompat:1.8.0") // AppCompatActivity + DayNight 主题（minCompileSdk=34）
+
+    // 纯 JVM 单元测试：LaTeX/markdown 清洗器这类字符串逻辑必须能在本机验证，不必上真机
+    testImplementation("junit:junit:4.13.2")
 }

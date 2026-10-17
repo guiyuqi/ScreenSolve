@@ -37,7 +37,10 @@ object PromptBuilder {
         appendLine("2. 如果图片不清晰、或画面里没有题目，answer 填写\"无法识别\"，")
         appendLine("   并在 conclusion 中说明原因。严禁编造题目或编造条件。")
         appendLine("3. confidence 是 0 到 1 的小数，表示你对识别与作答结果的信心。")
-        appendLine("4. 数学公式用 LaTeX 表示，例如 x^2-3x+2=0。")
+        appendLine("4. 全部字段用**纯文本**书写：数学式子直接用普通字符表示（例如 x^2-5x+6=0、x1=2 或 x₁=2、1/2、√2、≤、≠）。")
+        appendLine("   禁止使用 LaTeX（不要出现 $、\\frac、\\begin、&、\\left）与 markdown（不要出现 **、#、`），")
+        appendLine("   因为答题卡片的渲染器只显示纯文本，写 LaTeX 会变成一堆看不懂的反斜杠。")
+        appendLine("5. steps 每一项是一句完整的推导，句内不要换行，也不要自己编号。")
         if (style.isNotBlank()) {
             appendLine()
             appendLine("解题风格要求（只影响表达方式，不得改变上面的 JSON 结构与硬性要求）：")

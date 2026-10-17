@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.PixelFormat
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
@@ -16,56 +17,91 @@ import android.widget.TextView
 import android.widget.Toast
 import com.fragranstea.screensolve.R
 import com.fragranstea.screensolve.recognize.Answer
+import com.fragranstea.screensolve.recognize.AnswerTextFormatter
 import com.fragranstea.screensolve.recognize.SolveError
 import com.fragranstea.screensolve.util.DisplayUtils
 
 /**
- * 答案卡片的悬浮窗。
+ * 答案卡片：贴底、接近满宽的可滚动面板。
  *
- * 一个窗口承载三种状态：识题中 / 失败 / 有答案。这样用户点完悬浮球之后
- * 立刻有反馈，不必等到结果回来才出现东西。
- *
- * 位置策略与预览卡片一致：停靠在悬浮球的另一侧、宽度只占 72%，避免盖住悬浮球。
+ * 排版原则（M3 真机反馈后重做的一版）：
+ * - **答案要抢眼**：22sp 加粗单独一行，用户扫一眼就能拿到结论，而不是从大段文字里找。
+ * - **题目要能核对**：13sp 灰色，和答案拉开层级，但必须存在 —— 识别错题时必须一眼看出来。
+ * - **解析分条**：每条一个 TextView，条目之间有间距，比一整块文本好读得多。
+ * - **贴底满宽**：之前 72% 宽会让"数学成绩/及格"这种半个词被折行，读起来很难受。
+ *   代价是卡片会盖住悬浮球，所以显示卡片时把悬浮球藏起来，关闭时再恢复。
  */
 class AnswerCardOverlay(
     private val context: Context,
     private val windowManager: WindowManager,
-    private val bubbleOnRight: Boolean,
 ) {
 
     var onClosed: (() -> Unit)? = null
 
     private var root: View? = null
     private var headerView: TextView? = null
+    private var questionLabel: TextView? = null
     private var questionView: TextView? = null
-    private var bodyView: TextView? = null
+    private var answerLabel: TextView? = null
+    private var answerView: TextView? = null
+    private var stepsLabel: TextView? = null
+    private var stepsContainer: LinearLayout? = null
+    private var footnoteView: TextView? = null
     private var copyButton: Button? = null
     private var current: Answer? = null
 
     fun showLoading() {
         ensureView()
-        headerView?.text = context.getString(R.string.answer_state_loading)
-        questionView?.visibility = View.GONE
-        bodyView?.text = context.getString(R.string.answer_state_loading_hint)
-        copyButton?.isEnabled = false
         current = null
+        headerView?.text = context.getString(R.string.answer_state_loading)
+        showSections(question = false, answer = false, steps = false)
+        footnoteView?.text = context.getString(R.string.answer_state_loading_hint)
+        footnoteView?.visibility = View.VISIBLE
+        copyButton?.isEnabled = false
     }
 
     fun showAnswer(answer: Answer) {
         ensureView()
         current = answer
+
         headerView?.text = if (answer.subject.isNotBlank()) {
-            context.getString(R.string.answer_header_subject, answer.subject, (answer.confidence * 100).toInt())
+            context.getString(
+                R.string.answer_header_subject,
+                answer.subject,
+                (answer.confidence * 100).toInt(),
+            )
         } else {
             context.getString(R.string.answer_header_plain)
         }
-        if (answer.question.isNotBlank()) {
-            questionView?.text = context.getString(R.string.answer_question, answer.question)
-            questionView?.visibility = View.VISIBLE
-        } else {
-            questionView?.visibility = View.GONE
+
+        val question = AnswerTextFormatter.sanitize(answer.question)
+        questionView?.text = question
+        showSections(question = question.isNotBlank(), answer = true, steps = answer.steps.isNotEmpty())
+
+        answerView?.text = AnswerTextFormatter.sanitize(answer.answer)
+
+        stepsContainer?.removeAllViews()
+        answer.steps.forEachIndexed { index, step ->
+            stepsContainer?.addView(
+                TextView(context).apply {
+                    text = context.getString(
+                        R.string.answer_step_item,
+                        index + 1,
+                        AnswerTextFormatter.sanitize(step),
+                    )
+                    textSize = 14.5f
+                    setTextColor(BODY_COLOR)
+                    setLineSpacing(6f * DisplayUtils.density(context), 1f)
+                    setPadding(0, DisplayUtils.dp(context, 6), 0, 0)
+                },
+                LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT),
+            )
         }
-        bodyView?.text = buildBody(answer)
+
+        footnoteView?.text = buildFootnote(answer)
+        footnoteView?.visibility =
+            if (footnoteView?.text.isNullOrBlank()) View.GONE else View.VISIBLE
+
         copyButton?.isEnabled = true
     }
 
@@ -73,8 +109,8 @@ class AnswerCardOverlay(
         ensureView()
         current = null
         headerView?.text = context.getString(R.string.answer_state_failed)
-        questionView?.visibility = View.GONE
-        bodyView?.text = buildString {
+        showSections(question = false, answer = false, steps = false)
+        footnoteView?.text = buildString {
             append(errorText(error))
             if (!detail.isNullOrBlank()) {
                 appendLine()
@@ -82,7 +118,38 @@ class AnswerCardOverlay(
                 append(context.getString(R.string.answer_error_detail, detail))
             }
         }
+        footnoteView?.visibility = View.VISIBLE
         copyButton?.isEnabled = false
+    }
+
+    private fun buildFootnote(answer: Answer): String = buildString {
+        if (answer.conclusion.isNotBlank()) {
+            append(AnswerTextFormatter.sanitize(answer.conclusion))
+        }
+        if (answer.knowledgePoints.isNotEmpty()) {
+            if (isNotEmpty()) appendLine()
+            appendLine()
+            append(
+                context.getString(
+                    R.string.answer_body_knowledge,
+                    answer.knowledgePoints.joinToString("、"),
+                ),
+            )
+        }
+        if (answer.lowConfidence) {
+            if (isNotEmpty()) appendLine()
+            appendLine()
+            append(context.getString(R.string.answer_low_confidence))
+        }
+    }.trim()
+
+    private fun showSections(question: Boolean, answer: Boolean, steps: Boolean) {
+        questionLabel?.visibility = if (question) View.VISIBLE else View.GONE
+        questionView?.visibility = if (question) View.VISIBLE else View.GONE
+        answerLabel?.visibility = if (answer) View.VISIBLE else View.GONE
+        answerView?.visibility = if (answer) View.VISIBLE else View.GONE
+        stepsLabel?.visibility = if (steps) View.VISIBLE else View.GONE
+        stepsContainer?.visibility = if (steps) View.VISIBLE else View.GONE
     }
 
     /**
@@ -104,66 +171,66 @@ class AnswerCardOverlay(
         },
     )
 
-    private fun buildBody(answer: Answer): String = buildString {
-        appendLine(context.getString(R.string.answer_body_answer, answer.answer))
-        if (answer.steps.isNotEmpty()) {
-            appendLine()
-            appendLine(context.getString(R.string.answer_body_steps))
-            answer.steps.forEachIndexed { index, step ->
-                appendLine("${index + 1}. $step")
-            }
-        }
-        if (answer.conclusion.isNotBlank()) {
-            appendLine()
-            append(answer.conclusion)
-        }
-        if (answer.knowledgePoints.isNotEmpty()) {
-            appendLine()
-            appendLine()
-            append(context.getString(R.string.answer_body_knowledge, answer.knowledgePoints.joinToString("、")))
-        }
-        if (answer.lowConfidence) {
-            appendLine()
-            appendLine()
-            append(context.getString(R.string.answer_low_confidence))
-        }
-    }
-
     private fun ensureView() {
         if (root != null) return
 
         val bounds = DisplayUtils.screenBounds(context)
-        val pad = DisplayUtils.dp(context, 16)
+        val pad = DisplayUtils.dp(context, 18)
 
         val card = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
             background = GradientDrawable().apply {
-                cornerRadius = 16f * DisplayUtils.density(context)
+                cornerRadius = 18f * DisplayUtils.density(context)
                 setColor(CARD_COLOR)
             }
         }
 
         headerView = TextView(context).apply {
-            textSize = 15f
-            setTextColor(HEADER_COLOR)
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
-        }
-        questionView = TextView(context).apply {
-            textSize = 13f
-            setTextColor(QUESTION_COLOR)
-            val p = DisplayUtils.dp(context, 6)
-            setPadding(0, p, 0, p)
-            visibility = View.GONE
-        }
-        bodyView = TextView(context).apply {
             textSize = 14f
-            setTextColor(BODY_COLOR)
+            setTextColor(HEADER_COLOR)
+            setTypeface(typeface, Typeface.BOLD)
+        }
+
+        questionLabel = sectionLabel(R.string.answer_label_question)
+        questionView = TextView(context).apply {
+            textSize = 13.5f
+            setTextColor(QUESTION_COLOR)
+            setLineSpacing(5f * DisplayUtils.density(context), 1f)
+        }
+
+        answerLabel = sectionLabel(R.string.answer_label_answer)
+        answerView = TextView(context).apply {
+            textSize = 22f
+            setTextColor(ANSWER_COLOR)
+            setTypeface(typeface, Typeface.BOLD)
             setLineSpacing(4f * DisplayUtils.density(context), 1f)
         }
 
+        stepsLabel = sectionLabel(R.string.answer_label_steps)
+        stepsContainer = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+
+        footnoteView = TextView(context).apply {
+            textSize = 12.5f
+            setTextColor(FOOTNOTE_COLOR)
+            setLineSpacing(4f * DisplayUtils.density(context), 1f)
+            setPadding(0, DisplayUtils.dp(context, 10), 0, 0)
+        }
+
+        val content = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(questionLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(questionView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(answerLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(answerView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(stepsLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(stepsContainer, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(footnoteView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        }
+
         val scroll = ScrollView(context).apply {
-            addView(bodyView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            isFillViewport = true
+            addView(content, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         }
 
         copyButton = Button(context).apply {
@@ -176,9 +243,7 @@ class AnswerCardOverlay(
             setOnClickListener { remove() }
         }
 
-        val bottomRow = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
+        val bottomRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
         bottomRow.addView(copyButton, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         bottomRow.addView(
             closeButton,
@@ -188,8 +253,12 @@ class AnswerCardOverlay(
         )
 
         card.addView(headerView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        card.addView(questionView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        card.addView(scroll, LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
+        card.addView(
+            scroll,
+            LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f).apply {
+                topMargin = DisplayUtils.dp(context, 10)
+            },
+        )
         card.addView(
             bottomRow,
             LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
@@ -197,15 +266,17 @@ class AnswerCardOverlay(
             },
         )
 
+        // 贴底、接近满宽：优先保证行宽，避免半个词就被折行
         val params = WindowManager.LayoutParams(
-            (bounds.width() * 0.72f).toInt(),
-            (bounds.height() * 0.60f).toInt(),
+            bounds.width() - DisplayUtils.dp(context, 24),
+            (bounds.height() * 0.58f).toInt(),
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT,
         ).apply {
-            gravity = Gravity.CENTER_VERTICAL or (if (bubbleOnRight) Gravity.START else Gravity.END)
+            gravity = Gravity.BOTTOM or Gravity.START
             x = DisplayUtils.dp(context, 12)
+            y = DisplayUtils.dp(context, 24)
         }
 
         try {
@@ -214,6 +285,13 @@ class AnswerCardOverlay(
         } catch (t: Throwable) {
             onClosed?.invoke()
         }
+    }
+
+    private fun sectionLabel(resId: Int): TextView = TextView(context).apply {
+        text = context.getString(resId)
+        textSize = 11.5f
+        setTextColor(LABEL_COLOR)
+        setPadding(0, DisplayUtils.dp(context, 12), 0, DisplayUtils.dp(context, 2))
     }
 
     private fun copyToClipboard() {
@@ -232,9 +310,12 @@ class AnswerCardOverlay(
     private companion object {
         const val MATCH_PARENT = ViewGroup.LayoutParams.MATCH_PARENT
         const val WRAP_CONTENT = ViewGroup.LayoutParams.WRAP_CONTENT
-        const val CARD_COLOR = 0xF7FFFFFF.toInt()
+        const val CARD_COLOR = 0xF9FFFFFF.toInt()
         const val HEADER_COLOR = 0xFF1F6FEB.toInt()
-        const val QUESTION_COLOR = 0xFF666666.toInt()
+        const val LABEL_COLOR = 0xFF8A8A8A.toInt()
+        const val QUESTION_COLOR = 0xFF5C5C5C.toInt()
+        const val ANSWER_COLOR = 0xFF111111.toInt()
         const val BODY_COLOR = 0xFF222222.toInt()
+        const val FOOTNOTE_COLOR = 0xFF6B6B6B.toInt()
     }
 }

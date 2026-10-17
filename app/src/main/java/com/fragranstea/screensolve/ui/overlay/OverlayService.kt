@@ -395,13 +395,17 @@ class OverlayService :
     private fun showAnswerCard(): AnswerCardOverlay {
         answerCard?.remove()
 
-        // 卡片停靠在悬浮球的另一侧，避免遮挡
-        val params = bubbleParams
-        val bounds = DisplayUtils.screenBounds(this)
-        val bubbleOnRight = params == null || (params.x + params.width / 2) > bounds.width() / 2
+        // 答案卡片已改成"贴底、接近满宽"的阅读面板，会盖住悬浮球，
+        // 所以显示卡片时先把悬浮球藏起来，关闭卡片时再恢复。
+        setBubbleVisible(false)
 
-        val card = AnswerCardOverlay(this, windowManager, bubbleOnRight)
-        card.onClosed = { if (answerCard === card) answerCard = null }
+        val card = AnswerCardOverlay(this, windowManager)
+        card.onClosed = {
+            if (answerCard === card) {
+                answerCard = null
+                setBubbleVisible(true)
+            }
+        }
         answerCard = card
         return card
     }

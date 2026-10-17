@@ -50,6 +50,10 @@
     <string name="answer_state_failed">Failed</string>
     <string name="answer_header_subject">%1$s · confidence %2$d%%</string>
     <string name="answer_header_plain">Result</string>
+    <string name="answer_label_question">QUESTION</string>
+    <string name="answer_label_answer">ANSWER</string>
+    <string name="answer_label_steps">STEPS</string>
+    <string name="answer_step_item">%1$d. %2$s</string>
     <string name="answer_question">Question: %1$s</string>
     <string name="answer_body_answer">Answer: %1$s</string>
     <string name="answer_body_steps">Steps:</string>

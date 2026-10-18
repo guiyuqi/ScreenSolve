@@ -140,4 +140,20 @@
     <string name="conversation_image_missing">这条记录没有存题目图，无法继续追问</string>
     <string name="conversation_failed">追问失败：%1$s</string>
     <string name="image_zoom_hint">双击或双指缩放，单击关闭</string>
+
+    <!-- 1.1.0：识题来源与悬浮球样式 -->
+    <string name="settings_section_source">识题来源</string>
+    <string name="settings_source_screen">截屏 + 框选（默认）：抓当前屏幕画面</string>
+    <string name="settings_source_camera">拍照 + 框选：调相机拍一张再框选</string>
+    <string name="settings_source_hint">点悬浮球就会按这里的方式取图。拍照模式不需要录屏授权，适合拍纸质作业/试卷。</string>
+    <string name="settings_section_bubble">悬浮球样式</string>
+    <string name="settings_bubble_default">默认：蓝色放大镜（56dp）</string>
+    <string name="settings_bubble_dot">极简：小白点（视觉 10dp），不挡内容</string>
+    <string name="settings_bubble_hint">切换后立即生效，悬浮球会原地变小/变大，位置保持不变。小白点样式只把视觉缩小，可点区域仍然留得比较大，方便点中。</string>
+    <string name="photo_no_camera">相机启动失败，这台设备可能没有可用摄像头</string>
+    <string name="photo_cancelled">已取消拍照</string>
+    <string name="photo_failed">拍照失败，请重试</string>
+    <string name="photo_hint">对准题目，拍完再框选</string>
+    <string name="photo_cancel">取消拍照</string>
+    <string name="photo_permission_denied">没有相机权限，无法拍照</string>
 </resources>

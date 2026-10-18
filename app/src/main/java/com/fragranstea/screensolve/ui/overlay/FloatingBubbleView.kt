@@ -8,6 +8,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import androidx.core.content.ContextCompat
+import com.fragranstea.screensolve.data.SettingsStore
 import com.fragranstea.screensolve.R
 import kotlin.math.abs
 
@@ -20,7 +21,10 @@ import kotlin.math.abs
  *
  * 坐标约定：所有对外回调传的都是「窗口左上角在屏幕坐标系中的位置」（单位：物理像素）。
  */
-class FloatingBubbleView(context: Context) : View(context) {
+class FloatingBubbleView(
+    context: Context,
+    private val style: SettingsStore.BubbleStyle = SettingsStore.BubbleStyle.DEFAULT,
+) : View(context) {
 
     interface Listener {
         /** 拖动过程中持续回调，用于实时移动窗口 */
@@ -54,6 +58,18 @@ class FloatingBubbleView(context: Context) : View(context) {
     private val icon = ContextCompat.getDrawable(context, R.drawable.ic_bubble_search)
     private val iconBounds = Rect()
 
+    /** 小白点样式用的画笔：白底 + 极细灰边 + 轻投影，保证在纯白页面上也看得见 */
+    private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFFFFFFF.toInt()
+        style = Paint.Style.FILL
+        setShadowLayer(3f * density, 0f, 1f * density, 0x40000000)
+    }
+    private val dotStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0x33000000
+        style = Paint.Style.STROKE
+        strokeWidth = 1f * density
+    }
+
     // 本次手势的基准与最新位置（都相对按下瞬间的窗口位置计算，避免叠加误差）
     private var startWindowX = 0
     private var startWindowY = 0
@@ -83,15 +99,29 @@ class FloatingBubbleView(context: Context) : View(context) {
         val centerY = height / 2f
         // 留 2dp 边距，避免抗锯齿把圆的边缘切掉
         val radius = centerX - 2f * density
-        canvas.drawCircle(centerX, centerY, radius, if (isPressed) pressedPaint else idlePaint)
 
-        val iconSize = (width * 0.52f).toInt()
-        val left = (width - iconSize) / 2
-        val top = (height - iconSize) / 2
-        iconBounds.set(left, top, left + iconSize, top + iconSize)
-        icon?.let {
-            it.setBounds(iconBounds)
-            it.draw(canvas)
+        when (style) {
+            // 极简：一个小白点，压在内容上也不挡视线。
+            // 直径由 visualSizeDp 决定，和窗口尺寸解耦 —— 窗口留大是为了好点中。
+            SettingsStore.BubbleStyle.DOT -> {
+                val baseRadius = style.visualSizeDp * density / 2f
+                val dotRadius = baseRadius * if (isPressed) 0.85f else 1f
+                canvas.drawCircle(centerX, centerY, dotRadius, dotPaint)
+                canvas.drawCircle(centerX, centerY, dotRadius - 0.4f * density, dotStrokePaint)
+            }
+
+            // 默认：品牌蓝 + 放大镜
+            SettingsStore.BubbleStyle.DEFAULT -> {
+                canvas.drawCircle(centerX, centerY, radius, if (isPressed) pressedPaint else idlePaint)
+                val iconSize = (width * 0.52f).toInt()
+                val left = (width - iconSize) / 2
+                val top = (height - iconSize) / 2
+                iconBounds.set(left, top, left + iconSize, top + iconSize)
+                icon?.let {
+                    it.setBounds(iconBounds)
+                    it.draw(canvas)
+                }
+            }
         }
     }
 

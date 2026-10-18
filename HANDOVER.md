@@ -5,7 +5,21 @@
 
 ---
 
-## 0. 发布状态（1.0.0）
+## 0. 发布状态（1.1.0）
+
+**1.1.0 新增（均已真机验证）**
+1. **悬浮球两种样式**：`SettingsStore.BubbleStyle{sizeDp, visualSizeDp}` —— 默认 56dp 蓝色放大镜 / 极简白点（视觉 10dp、可点区域 28dp）。
+   设置页切完立即生效（`OverlayService.restyle` → 重建悬浮窗，位置保持）。
+2. **选区改成悬浮窗**（`RegionSelectOverlay`）：不再启动 Activity，点悬浮球**没有转场动画**、
+   `mResumedActivity` 始终是用户的 App；答案卡片继续以悬浮窗盖在上面。
+   旧 `RegionSelectActivity` 及其布局已删除。
+3. **拍照模式**（`Source.CAMERA`）：设置里切换；点悬浮球进**应用内 CameraX 取景页**（`PhotoCaptureActivity`），
+   拍完直接弹选区 → 识题。照片**只进内存、不写相册、不落临时文件**，只有裁好的题目图进历史。
+   为什么不用系统相机：OEM 相机会额外往相册存一份（用户明确不要）、还有 ✕/✓ 确认页，且无法自动化回归。
+
+**待办**：把 1.1.0 的 lite/full release 传到 GitHub Release（需要一次带 Contents 写权限的 token）。
+
+## 0.1 发布状态（1.0.0，历史）
 
 - **v1.0.0（versionCode 10）已发布**：`lite` 1.79 MB / `full` 16.2 MB，均为 V2 签名。
 - 正式包与调试包的界面差异由 `R.bool.is_debug_build` 控制（`app/src/debug/res/values/bools.xml` 覆盖为 true）：
@@ -114,7 +128,7 @@ app/src/main/java/com/fragranstea/screensolve/
   （实测提问气泡 `x 391–1002` 靠右、回答气泡 `x 78–842` 靠左）、全屏题图缩放正常。
 - 冒烟开关 `-PsmokeTest`（包名加 `.smoke` 后缀）保留，用于"不卸载 debug 包"验证 R8 后能否启动。
 - release 签名：`assembleLiteRelease` / `assembleFullRelease` 均为 V2 签名（CN=ScreenSolve），
-  最终体积 **lite 1.79 MB / full 16.2 MB**（差额全在 ML Kit）
+  最终体积 **lite 2.28 MB / full 16.69 MB**（差额全在 ML Kit）
 
 ### 已知问题（按优先级）
 1. **多题同屏会降低质量**。选区提示已加"建议只框一道题"，提示词要求多题时只答最完整的一道。

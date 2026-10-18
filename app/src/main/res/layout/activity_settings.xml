@@ -40,6 +40,66 @@
             style="@style/ActionButton"
             android:text="@string/settings_key_clear" />
 
+        <!-- 识题来源 -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="@string/settings_section_source" />
+
+        <RadioGroup
+            android:id="@+id/rgSource"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/rbSourceScreen"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_source_screen" />
+
+            <RadioButton
+                android:id="@+id/rbSourceCamera"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_source_camera" />
+        </RadioGroup>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_source_hint"
+            android:textSize="12sp" />
+
+        <!-- 悬浮球样式 -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="@string/settings_section_bubble" />
+
+        <RadioGroup
+            android:id="@+id/rgBubbleStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/rbBubbleDefault"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_bubble_default" />
+
+            <RadioButton
+                android:id="@+id/rbBubbleDot"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_bubble_dot" />
+        </RadioGroup>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_bubble_hint"
+            android:textSize="12sp" />
+
         <!-- 通道 -->
         <TextView
             style="@style/SectionTitle"

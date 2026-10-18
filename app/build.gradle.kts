@@ -24,8 +24,8 @@ android {
         applicationId = "com.fragranstea.screensolve"
         minSdk = 29
         targetSdk = 36
-        versionCode = 10
-        versionName = "1.0.0"
+        versionCode = 11
+        versionName = "1.1.0"
 
         // 只保留真机需要的 ABI（ML Kit 会给每个 ABI 各带一份 10MB 级原生库）
         ndk {
@@ -101,6 +101,13 @@ dependencies {
     // 所以锁 1.18.0（minCompileSdk=36）。
     implementation("androidx.core:core-ktx:1.18.0")      // ContextCompat / ServiceCompat
     implementation("androidx.appcompat:appcompat:1.8.0") // AppCompatActivity + DayNight 主题（minCompileSdk=34）
+
+    // 拍照模式用 CameraX 自建相机：**不经过系统相机 App**，
+    // 照片只进内存，绝不写入相册（用户明确要求），也没有 OEM 相机那套确认页
+    implementation("androidx.camera:camera-core:1.4.2")
+    implementation("androidx.camera:camera-camera2:1.4.2")
+    implementation("androidx.camera:camera-lifecycle:1.4.2")
+    implementation("androidx.camera:camera-view:1.4.2")
 
     // Markdown 用 Markwon（0.13 MB）；公式用 jlatexmath（0.62 MB）直接画成 Drawable，
     // 不引 WebView、也不用 Markwon 那个不可靠的 ext-latex 插件

@@ -18,6 +18,32 @@ class SettingsStore(context: Context) {
         OCR,
     }
 
+    /**
+     * 悬浮球外观。
+     * - DEFAULT：蓝底放大镜，56dp，一眼能找到
+     * - DOT：一个很小的白点（30dp），不挡内容、适合长期挂着
+     */
+    /**
+     * @param sizeDp 窗口尺寸（决定可点区域）
+     * @param visualSizeDp 实际画出来的圆直径。
+     *   DOT 故意让窗口比圆大：10dp 的圆在 480dpi 上只有 30px，
+     *   如果窗口也做 30px，手指几乎点不中（Android 建议最小 48dp 可点区域）。
+     *   透明区域同样响应触摸，所以"看着很小、依然好点"。
+     */
+    enum class BubbleStyle(val sizeDp: Int, val visualSizeDp: Int) {
+        DEFAULT(56, 56),
+        DOT(28, 10),
+    }
+
+    /** 题目从哪来：屏幕上看到的（截屏）还是拿相机拍。 */
+    enum class Source {
+        /** 截屏 + 框选（默认） */
+        SCREEN,
+
+        /** 调系统相机拍一张，再框选 */
+        CAMERA,
+    }
+
     private val prefs = context.applicationContext
         .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -27,6 +53,20 @@ class SettingsStore(context: Context) {
             else -> Channel.VISION
         }
         set(value) = prefs.edit().putString(KEY_CHANNEL, value.name).apply()
+
+    var bubbleStyle: BubbleStyle
+        get() = when (prefs.getString(KEY_BUBBLE_STYLE, null)) {
+            BubbleStyle.DOT.name -> BubbleStyle.DOT
+            else -> BubbleStyle.DEFAULT
+        }
+        set(value) = prefs.edit().putString(KEY_BUBBLE_STYLE, value.name).apply()
+
+    var source: Source
+        get() = when (prefs.getString(KEY_SOURCE, null)) {
+            Source.CAMERA.name -> Source.CAMERA
+            else -> Source.SCREEN
+        }
+        set(value) = prefs.edit().putString(KEY_SOURCE, value.name).apply()
 
     /** 是否开启深度思考：更准但更慢。 */
     var deepThinking: Boolean
@@ -55,5 +95,7 @@ class SettingsStore(context: Context) {
         private const val KEY_CHANNEL = "channel"
         private const val KEY_THINKING = "deep_thinking"
         private const val KEY_PROMPT = "custom_prompt"
+        private const val KEY_BUBBLE_STYLE = "bubble_style"
+        private const val KEY_SOURCE = "source"
     }
 }

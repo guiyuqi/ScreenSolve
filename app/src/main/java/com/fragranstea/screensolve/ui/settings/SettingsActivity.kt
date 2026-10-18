@@ -11,6 +11,7 @@ import com.fragranstea.screensolve.R
 import com.fragranstea.screensolve.data.SecureKeyStore
 import com.fragranstea.screensolve.data.SettingsStore
 import com.fragranstea.screensolve.recognize.OcrRecognizer
+import com.fragranstea.screensolve.ui.overlay.OverlayService
 
 /**
  * 设置页：API Key、识题通道、深度思考、自定义提示词。
@@ -27,6 +28,10 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var keyStatus: android.widget.TextView
     private lateinit var visionRadio: RadioButton
     private lateinit var ocrRadio: RadioButton
+    private lateinit var sourceScreenRadio: RadioButton
+    private lateinit var sourceCameraRadio: RadioButton
+    private lateinit var bubbleDefaultRadio: RadioButton
+    private lateinit var bubbleDotRadio: RadioButton
     private lateinit var thinkingSwitch: SwitchCompat
     private lateinit var promptInput: EditText
 
@@ -41,6 +46,10 @@ class SettingsActivity : AppCompatActivity() {
         keyStatus = findViewById(R.id.tvKeyStatus)
         visionRadio = findViewById(R.id.rbChannelVision)
         ocrRadio = findViewById(R.id.rbChannelOcr)
+        sourceScreenRadio = findViewById(R.id.rbSourceScreen)
+        sourceCameraRadio = findViewById(R.id.rbSourceCamera)
+        bubbleDefaultRadio = findViewById(R.id.rbBubbleDefault)
+        bubbleDotRadio = findViewById(R.id.rbBubbleDot)
         thinkingSwitch = findViewById(R.id.swDeepThinking)
         promptInput = findViewById(R.id.etPrompt)
 
@@ -75,6 +84,18 @@ class SettingsActivity : AppCompatActivity() {
                 settings.channel = SettingsStore.Channel.VISION
             }
         }
+        if (settings.source == SettingsStore.Source.CAMERA) {
+            sourceCameraRadio.isChecked = true
+        } else {
+            sourceScreenRadio.isChecked = true
+        }
+
+        if (settings.bubbleStyle == SettingsStore.BubbleStyle.DOT) {
+            bubbleDotRadio.isChecked = true
+        } else {
+            bubbleDefaultRadio.isChecked = true
+        }
+
         thinkingSwitch.isChecked = settings.deepThinking
         promptInput.setText(settings.customPrompt)
     }
@@ -93,6 +114,28 @@ class SettingsActivity : AppCompatActivity() {
             apiKeyInput.setText("")
         }
         settings.channel = if (ocrRadio.isChecked) SettingsStore.Channel.OCR else SettingsStore.Channel.VISION
+
+        val source = if (sourceCameraRadio.isChecked) {
+            SettingsStore.Source.CAMERA
+        } else {
+            SettingsStore.Source.SCREEN
+        }
+        val sourceChanged = settings.source != source
+        settings.source = source
+        // 切到拍照模式就不需要录屏会话了，顺手释放，避免状态栏一直挂着"正在录制"
+        if (sourceChanged && source == SettingsStore.Source.CAMERA) {
+            OverlayService.releaseSession(this)
+        }
+
+        val bubbleStyle = if (bubbleDotRadio.isChecked) {
+            SettingsStore.BubbleStyle.DOT
+        } else {
+            SettingsStore.BubbleStyle.DEFAULT
+        }
+        val styleChanged = settings.bubbleStyle != bubbleStyle
+        settings.bubbleStyle = bubbleStyle
+        // 悬浮窗宽高写死在 LayoutParams 里，改样式/尺寸只能让服务重建一次
+        if (styleChanged) OverlayService.restyle(this)
         settings.deepThinking = thinkingSwitch.isChecked
         settings.customPrompt = promptInput.text?.toString().orEmpty()
         refreshKeyStatus()

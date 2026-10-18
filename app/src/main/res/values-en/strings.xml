@@ -122,4 +122,20 @@
     <string name="conversation_image_missing">No stored question image, cannot follow up</string>
     <string name="conversation_failed">Follow-up failed: %1$s</string>
     <string name="image_zoom_hint">Pinch or double-tap to zoom, tap to close</string>
+
+    <!-- 1.1.0: capture source and bubble style -->
+    <string name="settings_section_source">Capture source</string>
+    <string name="settings_source_screen">Screen capture + crop (default)</string>
+    <string name="settings_source_camera">Camera photo + crop</string>
+    <string name="settings_source_hint">Tapping the bubble uses this source. Camera mode needs no screen-recording consent — handy for paper worksheets.</string>
+    <string name="settings_section_bubble">Bubble style</string>
+    <string name="settings_bubble_default">Default: blue magnifier (56dp)</string>
+    <string name="settings_bubble_dot">Minimal: small white dot (10dp visual)</string>
+    <string name="settings_bubble_hint">Takes effect immediately; the bubble resizes in place. The dot is small visually but keeps a comfortable touch area.</string>
+    <string name="photo_no_camera">Camera failed to start; no usable camera on this device</string>
+    <string name="photo_cancelled">Photo cancelled</string>
+    <string name="photo_failed">Photo failed, please retry</string>
+    <string name="photo_hint">Point at the question, then crop</string>
+    <string name="photo_cancel">Cancel</string>
+    <string name="photo_permission_denied">Camera permission denied</string>
 </resources>

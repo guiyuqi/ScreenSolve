@@ -40,7 +40,8 @@ import com.fragranstea.screensolve.recognize.SolveError
 import com.fragranstea.screensolve.recognize.SolveOutcome
 import com.fragranstea.screensolve.ui.consent.ConsentActivity
 import com.fragranstea.screensolve.ui.main.MainActivity
-import com.fragranstea.screensolve.ui.region.RegionSelectActivity
+import com.fragranstea.screensolve.ui.region.PhotoCaptureActivity
+import com.fragranstea.screensolve.ui.region.RegionSelectOverlay
 import com.fragranstea.screensolve.util.DisplayUtils
 
 /**
@@ -68,6 +69,7 @@ class OverlayService :
 
     private var projectionSession: ProjectionSession? = null
     private var answerCard: AnswerCardOverlay? = null
+    private var regionOverlay: RegionSelectOverlay? = null
 
     private lateinit var settingsStore: SettingsStore
     private lateinit var historyStore: HistoryStore
@@ -108,7 +110,18 @@ class OverlayService :
                 setBubbleVisible(true)
                 toast(R.string.toast_capture_denied)
             }
+            ACTION_RESTYLE -> rebuildBubble()
             ACTION_REGION_SELECTED -> handleRegionSelected()
+            ACTION_PHOTO_READY -> {
+                // 拍照中转 Activity 已经把照片放进 FrameHolder，这里直接进选区
+                val photo = FrameHolder.frame
+                if (photo == null) {
+                    setBubbleVisible(true)
+                    toast(R.string.photo_failed)
+                } else {
+                    onMain { launchRegionSelector(photo) }
+                }
+            }
             ACTION_REGION_CANCELLED -> {
                 FrameHolder.clear()
                 setBubbleVisible(true)
@@ -197,11 +210,39 @@ class OverlayService :
 
     // ---------------- 悬浮球 ----------------
 
+    /**
+     * 换了气泡样式/尺寸后重建窗口。
+     *
+     * 悬浮窗的宽高是在 LayoutParams 里定死的，改尺寸只能删了重加；
+     * 位置沿用当前坐标（按新尺寸重新夹到屏幕内），用户不会觉得球"跳"了。
+     */
+    private fun rebuildBubble() {
+        val old = bubbleParams
+        val keepX = old?.x
+        val keepY = old?.y
+        bubble?.let { runCatching { windowManager.removeView(it) } }
+        bubble = null
+        bubbleParams = null
+        showBubble()
+        val params = bubbleParams ?: return
+        if (keepX != null && keepY != null) {
+            val bounds = DisplayUtils.screenBounds(this)
+            params.x = keepX.coerceIn(0, (bounds.width() - params.width).coerceAtLeast(0))
+            params.y = keepY.coerceIn(0, (bounds.height() - params.height).coerceAtLeast(0))
+            bubble?.let { view ->
+                view.windowX = params.x
+                view.windowY = params.y
+                runCatching { windowManager.updateViewLayout(view, params) }
+            }
+        }
+    }
+
     private fun showBubble() {
         if (bubble != null) return
 
         val bounds = DisplayUtils.screenBounds(this)
-        val size = DisplayUtils.dp(this, BUBBLE_SIZE_DP)
+        val style = settingsStore.bubbleStyle
+        val size = DisplayUtils.dp(this, style.sizeDp)
         val maxX = (bounds.width() - size).coerceAtLeast(0)
         val maxY = (bounds.height() - size).coerceAtLeast(0)
 
@@ -220,7 +261,7 @@ class OverlayService :
             y = initialY.coerceIn(0, maxY)
         }
 
-        val view = FloatingBubbleView(this).apply {
+        val view = FloatingBubbleView(this, style).apply {
             listener = this@OverlayService
             windowX = params.x
             windowY = params.y
@@ -262,6 +303,12 @@ class OverlayService :
     }
 
     override fun onBubbleTapped() {
+        // 拍照模式不需要录屏权限，直接调相机
+        if (settingsStore.source == SettingsStore.Source.CAMERA) {
+            launchPhotoCapture()
+            return
+        }
+
         if (projectionSession?.isActive == true) {
             startCaptureFlow()
         } else {
@@ -281,6 +328,24 @@ class OverlayService :
      * 关键一步是**先隐藏悬浮球、再等一个新帧**：隐藏动作本身会产生一次画面变化，
      * 所以新帧一定会来，从而保证截出来的画面里没有自己的悬浮球。
      */
+    /**
+     * 拍照模式入口：先把自己藏起来（相机预览里不该出现悬浮球），
+     * 相机页拿到原图后会把选区界面拉起来，后续流程与截屏模式完全一致。
+     */
+    private fun launchPhotoCapture() {
+        setBubbleVisible(false)
+        try {
+            startActivity(
+                Intent(this, PhotoCaptureActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        } catch (t: Throwable) {
+            Log.e(TAG, "拉起拍照流程失败", t)
+            setBubbleVisible(true)
+            toast(R.string.photo_no_camera)
+        }
+    }
+
     private fun startCaptureFlow() {
         if (capturing) return
         val session = projectionSession
@@ -330,20 +395,29 @@ class OverlayService :
         }, "screensolve-capture").start()
     }
 
+    /**
+     * 弹出选区（悬浮窗）。
+     *
+     * 用悬浮窗而不是 Activity：不改变前台应用、没有转场动画。
+     * 用户先前的反馈是"点悬浮球会闪一下跳到搜题助手"，根因就在那个 Activity。
+     */
     private fun launchRegionSelector(frame: Bitmap) {
-        FrameHolder.frame = frame
-        FrameHolder.cropped = null
-        try {
-            startActivity(
-                Intent(this, RegionSelectActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-        } catch (t: Throwable) {
-            Log.e(TAG, "拉起选区界面失败", t)
-            FrameHolder.clear()
-            setBubbleVisible(true)
-            toast(R.string.toast_capture_failed)
+        regionOverlay?.remove()
+        val overlay = RegionSelectOverlay(this, windowManager).apply {
+            onConfirm = { cropped ->
+                regionOverlay = null
+                FrameHolder.frame = null
+                handleCropped(cropped)
+            }
+            onCancel = {
+                regionOverlay = null
+                FrameHolder.clear()
+                setBubbleVisible(true)
+            }
         }
+        regionOverlay = overlay
+        FrameHolder.frame = frame
+        overlay.show(frame)
     }
 
     /**
@@ -352,15 +426,21 @@ class OverlayService :
      * 除了解析结果以外全部在工作线程执行：图片压缩和网络请求都慢，放主线程会卡 UI（ANR）。
      */
     private fun handleRegionSelected() {
-        setBubbleVisible(true)
-
+        // 兼容旧入口（拍照中转 Activity 通过服务命令把裁剪结果带回来）
         val cropped = FrameHolder.cropped
         FrameHolder.frame = null
         FrameHolder.cropped = null
         if (cropped == null) {
+            setBubbleVisible(true)
             toast(R.string.toast_capture_failed)
             return
         }
+        handleCropped(cropped)
+    }
+
+    /** 拿到裁剪好的题目图，开始识题（截屏与拍照两条来源都汇到这里）。 */
+    private fun handleCropped(cropped: Bitmap) {
+        setBubbleVisible(true)
 
         val card = showAnswerCard()
         // 新的一次框选＝新的一条历史，旧 id 不能带过来
@@ -648,6 +728,8 @@ class OverlayService :
         const val ACTION_CONSENT_DENIED = "com.fragranstea.screensolve.action.CONSENT_DENIED"
         const val ACTION_REGION_SELECTED = "com.fragranstea.screensolve.action.REGION_SELECTED"
         const val ACTION_REGION_CANCELLED = "com.fragranstea.screensolve.action.REGION_CANCELLED"
+        const val ACTION_PHOTO_READY = "com.fragranstea.screensolve.action.PHOTO_READY"
+        const val ACTION_RESTYLE = "com.fragranstea.screensolve.action.RESTYLE"
 
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
@@ -655,7 +737,7 @@ class OverlayService :
         private const val TAG = "OverlayService"
         private const val CHANNEL_ID = "overlay_service"
         private const val NOTIFICATION_ID = 1001
-        private const val BUBBLE_SIZE_DP = 56
+
         private const val EDGE_MARGIN_DP = 4
 
         /** 等"隐藏悬浮球之后的新帧"的最长时间。隐藏本身是一次画面变化，所以新帧一定会来。 */
@@ -676,6 +758,16 @@ class OverlayService :
         @Volatile
         var isSessionActive: Boolean = false
             private set
+
+        /** 设置里改了气泡样式后调用：服务在跑就通知它重建。 */
+        fun restyle(context: Context) {
+            if (!isRunning) return
+            runCatching {
+                context.startService(
+                    Intent(context, OverlayService::class.java).setAction(ACTION_RESTYLE),
+                )
+            }
+        }
 
         fun start(context: Context) {
             ContextCompat.startForegroundService(context, Intent(context, OverlayService::class.java))
@@ -707,6 +799,12 @@ class OverlayService :
         }
 
         /** 选区完成：裁剪结果放在 [FrameHolder.cropped]，这里只负责通知服务继续。 */
+        /** 拍照中转 Activity 拿到照片后调用：让服务弹出选区。 */
+        fun notifyPhotoReady(context: Context) {
+            val intent = Intent(context, OverlayService::class.java).setAction(ACTION_PHOTO_READY)
+            ContextCompat.startForegroundService(context, intent)
+        }
+
         fun notifyRegionSelected(context: Context) {
             val intent = Intent(context, OverlayService::class.java)
                 .setAction(ACTION_REGION_SELECTED)

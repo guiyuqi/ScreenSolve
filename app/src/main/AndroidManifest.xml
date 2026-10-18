@@ -17,6 +17,14 @@
     <!-- Android 13+ 前台服务通知需要运行时授权 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- 拍照模式（应用内自建相机）。只在上面的取景页用到，不涉及相册读写 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- 声明需要相机硬件，但**不**设为 required：没相机的设备也能装，只是拍照模式不可用 -->
+    <uses-feature
+        android:name="android.hardware.camera.any"
+        android:required="false" />
+
     <!-- M3 起调用 DeepSeek API 用 -->
     <uses-permission android:name="android.permission.INTERNET" />
 
@@ -58,11 +66,29 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
-        <!-- 选区界面：全屏显示抓到的画面，拖框选题目区域 -->
+        <!--
+          拍照模式的中转 Activity：调系统相机、拿回原图，再交给选区界面。
+          全透明 + 独立任务栈 + 不入最近任务，用户只会看到"相机 → 框选"。
+        -->
+        <!--
+          注意：这里**不能**加 noHistory。相机盖住本页时，noHistory 会把 Activity 直接结束掉，
+          startActivityForResult 的结果就没人接收了（表现为点完快门没反应）。
+        -->
+        <!--
+          取景页是 Activity（相机预览必须有生命周期），所以拍照模式下必然有一次页面切换，
+          这是相机本身决定的。但 taskAffinity="" 保证它**不加入搜题助手的任务栈**：
+          拍完 finish 后回到用户原来那个 App，答案卡片再以悬浮窗盖上。
+          （不加 noHistory：取景页在拍完前不能被系统回收。）
+        -->
         <activity
-            android:name=".ui.region.RegionSelectActivity"
+            android:name=".ui.region.PhotoCaptureActivity"
+            android:excludeFromRecents="true"
             android:exported="false"
+            android:screenOrientation="portrait"
+            android:taskAffinity=""
             android:theme="@style/Theme.ScreenSolve" />
+
+        
 
         <activity
             android:name=".ui.history.HistoryActivity"

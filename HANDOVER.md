@@ -34,6 +34,10 @@
   需要 fine-grained token 的 **Contents: Read and write**；token 只经环境变量传递，不落文件）。
 - 使用说明见 `README.md`。
 
+## 0.5 许可证
+
+MIT（`LICENSE`，Copyright (c) 2026 guiyuqi）。第三方依赖各自许可，清单见 `README.md` 末尾。
+
 ## 1. 项目是什么
 
 安卓悬浮窗截图搜题：悬浮球 → 截屏 → 拖框选区 → 调 DeepSeek 视觉模型 → 答案卡片（LaTeX 渲染）。

@@ -82,3 +82,22 @@ export ANDROID_HOME=/opt/android-sdk
 - 需要 Android 10（API 29）及以上。
 - 公式渲染基于 jlatexmath，极少数模型自造的非法 LaTeX 命令会自动降级成源码文本（不会白屏）。
 - 一次只保证一道题的质量。
+
+## 许可证
+
+本项目以 **MIT 许可证**发布，全文见 [LICENSE](LICENSE)。
+
+```
+Copyright (c) 2026 guiyuqi
+```
+
+简单说：你可以自由使用、修改、商用、再发布，**只要保留版权声明与许可证副本**；作者不为使用后果负责。
+
+打包进 APK 的第三方库遵循它们各自的许可证，版权归各自作者：
+
+| 依赖 | 用途 | 许可证 |
+|---|---|---|
+| [Markwon](https://github.com/noties/Markwon) | Markdown 渲染 | Apache-2.0 |
+| [jlatexmath-android](https://github.com/noties/jlatexmath-android) | LaTeX 公式渲成图片 | 见其仓库（底层 jlatexmath 来自 Scilab） |
+| [AndroidX CameraX](https://developer.android.com/jetpack/androidx/releases/camera) | 拍照模式取景 | Apache-2.0 |
+| [ML Kit](https://developers.google.com/ml-kit)（仅 full 版） | 中文离线 OCR | 见 Google 条款 |

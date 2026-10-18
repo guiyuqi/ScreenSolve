@@ -12,10 +12,15 @@
 set -euo pipefail
 
 REPO="${REPO:-guiyuqi/ScreenSolve}"
-TAG="${TAG:-v1.0.0}"
-NAME="${NAME:-搜题助手 v1.0.0}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-NOTES="$ROOT/RELEASE_NOTES_v1.0.0.md"
+
+# 版本号直接从 build.gradle.kts 读，避免"改完代码忘了改脚本默认值"——
+# 之前就是因为这里写死 v1.0.0，1.1.0 的包被挂到 1.0.0 上，被 GitHub 以
+# "同名资产已存在" 拒掉（asset already_exists），看起来像发布成功其实什么都没发出去。
+VERSION="$(grep -oE 'versionName *= *"[^"]+"' "$ROOT/app/build.gradle.kts" | head -1 | sed -E 's/.*"([^"]+)"/\1/')"
+TAG="${TAG:-v$VERSION}"
+NAME="${NAME:-搜题助手 v$VERSION}"
+NOTES="${NOTES:-$ROOT/RELEASE_NOTES_v$VERSION.md}"
 # 本地产物路径 → 上传后的资产名（用户下载时看到的名字，要和发布说明里一致）
 ASSET_LOCAL=(
     "$ROOT/app/build/outputs/apk/lite/release/app-lite-release.apk"

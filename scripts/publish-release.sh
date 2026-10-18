@@ -47,6 +47,12 @@ else
     echo "== 创建 release"
     BODY=$(python3 -c 'import json,sys;print(json.dumps({"tag_name":sys.argv[1],"name":sys.argv[2],"body":open(sys.argv[3],encoding="utf-8").read(),"draft":False,"prerelease":False}))' "$TAG" "$NAME" "$NOTES")
     CREATED=$(api -X POST "https://api.github.com/repos/$REPO/releases" -d "$BODY")
+    # 403/404 时 CREATED 里没有 upload_url，直接取会抛 KeyError 看不懂，这里先给可读错误
+    if ! printf '%s' "$CREATED" | grep -q '"upload_url"'; then
+        echo "创建 release 失败：$(printf '%s' "$CREATED" | head -c 200)" >&2
+        echo "提示：fine-grained token 需要 代码内容 / Contents: Read and write" >&2
+        exit 1
+    fi
     UPLOAD_URL=$(echo "$CREATED" | python3 -c 'import sys,json;print(json.load(sys.stdin)["upload_url"])')
     echo "$CREATED" | python3 -c 'import sys,json;d=json.load(sys.stdin);print("release:", d.get("html_url"))'
 fi

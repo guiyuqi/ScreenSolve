@@ -77,7 +77,7 @@ android {
         applicationId = "com.fragranstea.screensolve"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
+        versionCode = 1        // 示例脚手架，本项目实际已到 13 / 1.1.2
         versionName = "1.0"
     }
     compileOptions {

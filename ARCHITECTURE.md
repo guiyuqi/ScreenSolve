@@ -208,7 +208,12 @@ sealed interface SessionState {
 
 ### 4.3 区域选择
 
-- **载体**：独立的全屏 Activity（`RegionSelectActivity`，`Theme.Translucent.NoTitleBar` + 半透明遮罩），比 overlay window 更容易拿到正确的触摸与生命周期
+- **载体**：**全屏悬浮窗**（`RegionSelectOverlay`，`TYPE_APPLICATION_OVERLAY` + `FLAG_LAYOUT_IN_SCREEN`）。
+  早期用的是独立 Activity（`RegionSelectActivity`），真机反馈"点悬浮球会闪一下跳走"——那是 Activity 转场动画，
+  用户自己的 App 还会短暂 onPause。改成悬浮窗后**不启动任何 Activity**，前台应用保持不变，
+  答案卡片再以悬浮窗盖在上面（v1.1.0 起）。
+- **坐标映射**：位图按 `min(w/bmpW, h/bmpH)` **等比缩放居中**（多余留黑边），
+  选区反算 `(selRect - dstRect) × (位图尺寸/显示尺寸)`。早期直接铺满视图会把 4:3 的拍照图横向拉伸（v1.1.1 修）
 - **输入素材**：把刚抓到的全屏 Bitmap 作为背景铺满（而不是用透明窗口看真实屏幕）——这样遮罩、暗化、放大镜都在同一张图上做，坐标换算简单可靠 ✅
 - **交互**：
   - 手指拖动出矩形；松手后矩形保留 8 个句柄可微调（MVP 可只做"重新拖"）
@@ -349,6 +354,27 @@ Content-Type: application/json
 
 ---
 
+### 4.10 拍照模式（应用内相机）
+
+- **为什么不用系统相机**（`ACTION_IMAGE_CAPTURE` + `EXTRA_OUTPUT`）：
+  1. 用户明确要求"拍的照片不要进系统相册"。系统相机由各厂商实现，有的 ROM 除了写我们给的文件，
+     还会自己往相册存一份，应用侧拦不住。
+  2. 系统相机有额外确认页（✕/✓）与大量定制，交互不可控，也没法做自动化回归。
+  3. 相机是另一个 App，结果只能回到 Activity，服务拿不到。
+- **实现**：`PhotoCaptureActivity` 用 **CameraX**（`camera-core/camera2/lifecycle/view`，约 +0.47 MB）自建取景页：
+  `PreviewView` + 白色快门 + 💡 手电开关；`takePicture()` → `ImageProxy.toBitmap()` → 按 `rotationDegrees` 摆正 →
+  放进 `FrameHolder`，通知服务**弹同一个选区悬浮窗**。照片**只进内存**，不写磁盘、不写 MediaStore。
+- **落库策略**：只有用户框选后的题目图（`ImagePipeline` 压成长边 1600 的 JPEG）进 `filesDir/history/`。
+- **代价**：相机预览必须有生命周期，所以拍照模式下必然有一次 Activity 切换（相机本身决定的）；
+  用 `taskAffinity=""` 让它独立成任务，拍完 finish 后回到用户原来的 App。
+
+### 4.11 悬浮球样式
+
+- `SettingsStore.BubbleStyle(sizeDp, visualSizeDp)`：
+  - `DEFAULT`：56dp 蓝底放大镜
+  - `DOT`：**窗口 28dp、只画 10dp 的白点** —— 10dp 在 480dpi 上只有 30px，
+    窗口若也做 30px 手指几乎点不中（Android 建议 ≥48dp 可点区域），所以透明区域留着响应触摸。
+- 切换样式后 `OverlayService.restyle()` 重建悬浮窗（`LayoutParams` 里宽高写死，只能删了重加），位置沿用。
 ## 5. 完整时序（成功路径 + 关键分支）
 
 ```
@@ -367,7 +393,7 @@ Content-Type: application/json
    │
    ├─ 抓帧失败 ─► 重试 1 次 ─► 仍失败 ─► 提示"截图失败，请重试"+ 释放会话
    ▼
-恢复悬浮球 ─► 启动 RegionSelectActivity(frame)
+恢复悬浮球 ─► 弹出选区悬浮窗 RegionSelectOverlay(frame)（不切 Activity）
    │
    ├─ 用户取消 ─► 回 Idle（不释放会话，下次可直接抓帧）
    ▼
@@ -458,10 +484,10 @@ WSL 里没有 USB 直通、也没有 `/dev/kvm`（详见 `ENV_CHECK.md`），所
 | **M0 环境** ✅ **已完成** | JDK 21 + Android SDK 全局装到 `/opt/android-sdk`，最小项目构建成功（详见 `TOOLCHAIN.md`） | `./gradlew assembleDebug` 通过并产出 6.4 MB APK ✅；`adb devices` 看到手机 ⬜ 待插真机 |
 | **M1 悬浮窗** ✅ **真机验证通过** | `OverlayService`（前台服务 + 常驻通知 + 通知栏"关闭"）、`FloatingBubbleView`（自绘悬浮球：拖动/松手吸边/点击）、`MainActivity`（权限引导 + 总开关）、位置记忆 | 其他应用上层稳定显示、切后台不消失、开关能彻底关掉（详见 §12） |
 | **M2 截图 + 选区** ✅ **真机验证通过** | `ProjectionSession`（一次授权、会话常驻、持续排空保留最新帧）、`ConsentActivity`（无界面授权中转） | 连续 3 次抓帧不再弹授权；滚动+静置 8 秒后抓帧与真实屏幕逐像素差异 2.7%（详见 §12） |
-| **M3 打通视觉识别** 🟡 **代码完成，待真机验证** | `RegionSelectView`/`RegionSelectActivity`（拖框选区）、`ImagePipeline`（裁剪→缩放→JPEG→base64）、`SecureKeyStore`（Keystore AES-GCM 加密存 Key）、`SettingsActivity`（Key / 通道 / 深度思考 / 自定义提示词）、`DeepSeekClient`（HttpURLConnection）、`PromptBuilder` + `AnswerParser`、`AnswerCardOverlay`（题干回显/答案/解析/置信度/复制） | 真机跑通：拖框 → 识别 → 答案卡片；Key 错误/断网/余额不足都有可操作提示。**SSE 流式输出留到 M4**（当前是同步请求 + loading 卡片） |
-| **M4 通道切换 + 流式 + 历史** 🟡 **OCR 通道已完成** | ✅ ML Kit 中文 OCR（bundled，离线，不依赖 GMS）+ 设置页通道切换 + `SolveEngine.solveText` 文本通道；⬜ SSE 流式输出；⬜ 历史记录 | OCR 通道真机跑通：离线出字 → 文本交模型 → 模型如实指出 OCR 错字（"申诗/载屏/設置"）并降低结论可靠性 ✅；⬜ 流式打字机；⬜ 历史记录 |
-| **M5 多轮追问** | 答案卡片内追问（保留上下文）、历史 → 会话视图续聊、追问入历史 | 追问回复可读；从历史能接着问 |
-| **M6 体验打磨** | 追问多轮（同窗口带上下文继续问，见用户需求第 5 点）、历史记录、思考模式三档、错误重试、开屏引导 | 连续使用 30 分钟不崩、不卡、不烫手 |
+| **M3 打通视觉识别** ✅ **真机验证通过** | `RegionSelectView`（拖框选区）、`ImagePipeline`（裁剪→缩放→JPEG→base64）、`SecureKeyStore`（Keystore AES-GCM 加密存 Key）、`SettingsActivity`（Key / 通道 / 深度思考 / 自定义提示词）、`DeepSeekClient`（HttpURLConnection）、`PromptBuilder` + `AnswerParser`、`AnswerCardOverlay`（题干回显/答案/解析/置信度/复制） | 真机跑通：拖框 → 识别 → 答案卡片；Key 错误/断网/余额不足都有可操作提示。**SSE 流式输出留到 M4**（当前是同步请求 + loading 卡片） |
+| **M4 通道切换 + 流式 + 历史** ✅ **全部完成** | ✅ ML Kit 中文 OCR（bundled，离线，不依赖 GMS）+ 设置页通道切换 + `SolveEngine.solveText` 文本通道；✅ SSE 流式输出（含 reasoning_content 实时思考）；✅ 历史记录（本地题目图 + 会话视图） | OCR 通道真机跑通：离线出字 → 文本交模型 → 模型如实指出 OCR 错字并降置信度 ✅；流式打字机 ✅ |
+| **M5 多轮追问** ✅ | 答案卡片内追问（保留上下文）、历史 → 会话视图续聊、追问入历史、追问独立指令（不重走题目/答案模板） | 追问回复可读；从历史能接着问 ✅ |
+| **M6 体验打磨** ✅ | 悬浮球双样式、选区改悬浮窗（不跳页）、拍照模式（应用内相机 + 不给相册留档）、外观三档（跟随系统/白天/夜间）、看图旋转、相机补光、公式行高与长公式收敛 | 见 HANDOVER §0 的 1.1.x 回归表 ✅ |
 
 **M0–M2 已真机验证通过，M3 代码完成待验收**。M3 的实现取舍：先用同步请求 + "正在识题…"卡片保证正确性，SSE 流式打字机效果放到 M4 与 OCR 通道一起做。
 
@@ -538,7 +564,7 @@ WSL 里没有 USB 直通、也没有 `/dev/kvm`（详见 `ENV_CHECK.md`），所
 
 | 项 | 结果 / 证据 |
 |---|---|
-| 悬浮球 → 授权 → 选区 | ✅ `MediaProjectionPermissionActivity` 弹出并确认 → `RegionSelectActivity` 前台 |
+| 悬浮球 → 授权 → 选区 | ✅ `MediaProjectionPermissionActivity` 弹出并确认 → 选区悬浮窗覆盖当前应用（前台应用不变） |
 | 拖框 → 确认 → 裁剪压缩 | ✅ 日志 `开始识题 jpeg=43889 bytes`（1080×2388 全屏框选后 43 KB） |
 | **请求真的到达服务端** | ✅ 用假 Key 得到服务端真实回包：`INVALID_KEY / Authentication Fails, Your api key: **** is invalid (request_id: 5a436f9c-...)`。服务端返回的是 **401 而不是 400**，说明接口地址、鉴权头、JSON 请求体结构、TLS 链路全部正确 |
 | 未填 Key 的分支 | ✅ `识题失败 error=NO_API_KEY`，卡片显示"回主界面 → 设置填入 Key" |

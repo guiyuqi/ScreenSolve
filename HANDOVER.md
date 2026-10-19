@@ -37,7 +37,7 @@
    无闪光灯设备给提示，退出页面自动关灯。
 
 **产物**：lite release 2.28 MB / full release 16.70 MB / lite debug 11.8 MB / full debug 27.4 MB（versionCode 13）
-**GitHub**：v1.0.0、v1.1.0 已发布；v1.1.1 / v1.1.2 待发（需要 Contents 写权限的 token）。
+**GitHub**：v1.0.0、v1.1.0、**v1.1.1 均已发布**；**v1.1.2 待发**（需要 Contents 写权限的 token，或用户自行 `./scripts/publish-release.sh`）。
 
 ## 0.1 发布状态（1.1.1）
 
@@ -65,7 +65,7 @@
 
 ## 0.1 发布状态（1.0.0，历史）
 
-- **v1.0.0（versionCode 10）已发布**：`lite` 1.79 MB / `full` 16.2 MB，均为 V2 签名。
+- **v1.0.0（versionCode 10）已发布**：当时 `lite` 1.79 MB / `full` 16.2 MB，均为 V2 签名（体积随后续版本变化，见 §0）。
 - 正式包与调试包的界面差异由 `R.bool.is_debug_build` 控制（`app/src/debug/res/values/bools.xml` 覆盖为 true）：
   **"当前进度"区块、带版本号的调试版副标题只在 debug 包出现**，release 包副标题只有「悬浮窗截图搜题」。
 - 发布前自查已过：manifest 无 `debuggable`、`allowBackup=false`、除启动页外无导出组件、
@@ -96,7 +96,7 @@ MIT（`LICENSE`，Copyright (c) 2026 guiyuqi）。第三方依赖各自许可，
 仓库：`github.com/guiyuqi/ScreenSolve`（SSH 走 Windows 代理推送，见 §6）。
 
 **用户偏好（重要）**
-- 体积要小、启动要快 → 已拆 lite/full 双版本，默认 lite（release **1.46 MB**）
+- 体积要小、启动要快 → 已拆 lite/full 双版本，默认 lite（release **2.28 MB**，含 CameraX）
 - 答案要**严格 LaTeX + 端上渲染**，参考 latexlive.com 的效果
 - 历史记录**连题目图一起存本地**（不上传）
 - 提问界面希望都在**悬浮卡片**里完成（不要在多个页面间跳）
@@ -129,7 +129,7 @@ app/src/main/java/com/fragranstea/screensolve/
 │  └─ FrameHolder.kt          抓帧/裁剪结果的进程内交接（不塞 Intent，避免 TransactionTooLarge）
 ├─ data/
 │  ├─ SecureKeyStore.kt       API Key：Android Keystore AES-GCM 加密，只存密文
-│  ├─ SettingsStore.kt        channel(VISION/OCR) / deep_thinking / custom_prompt
+│  ├─ SettingsStore.kt        channel(VISION/OCR) / source(SCREEN/CAMERA) / bubbleStyle / themeMode / deep_thinking / custom_prompt
 │  ├─ HistoryStore.kt         最近 10 条 + filesDir/history/<id>.jpg + 追问 turns
 │  └─ BubblePositionStore.kt  悬浮球位置记忆
 ├─ network/DeepSeekClient.kt  HttpURLConnection；chatCompletion + chatCompletionStream(SSE)
@@ -143,17 +143,20 @@ app/src/main/java/com/fragranstea/screensolve/
 │  ├─ consent/ConsentActivity.kt       无界面授权中转（MediaProjection 只能 Activity 发起）
 │  ├─ overlay/OverlayService.kt        核心：悬浮球 + 会话 + 抓帧 + 识题编排（~640 行）
 │  ├─ overlay/AnswerCardOverlay.kt     答案卡片：贴底满宽、高度锚点、流式思考、追问输入行（窗口可聚焦）
-│  ├─ overlay/FloatingBubbleView.kt    自绘悬浮球
-│  ├─ region/RegionSelectView.kt       预选框 + 四角拖拽 + 框内平移 + 框外重画
-│  ├─ region/RegionSelectActivity.kt   选区界面
+│  ├─ overlay/FloatingBubbleView.kt    自绘悬浮球（两种样式：默认蓝底 / 极简小白点）
+│  ├─ region/RegionSelectView.kt       预选框 + 四角拖拽 + 框内平移 + 框外重画（等比显示 + 黑边）
+│  ├─ region/RegionSelectOverlay.kt    **选区悬浮窗**（不启动 Activity，故无转场、不离开用户页面）
+│  ├─ region/PhotoCaptureActivity.kt   拍照模式取景页（CameraX 自建相机 + 手电开关，照片只进内存）
 │  ├─ history/HistoryActivity.kt       历史列表（点条目进会话视图）
 │  ├─ history/ConversationActivity.kt  **会话视图**：看图 + 读答案 + 接着追问（重建 vision 会话）
-│  ├─ settings/SettingsActivity.kt     Key / 通道 / 深度思考 / 自定义提示词
+│  ├─ settings/SettingsActivity.kt     Key / 通道 / 识题来源 / 悬浮球样式 / 外观 / 深度思考 / 提示词
 │  └─ main/MainActivity.kt             权限引导 + 总开关 + 会话状态 + 入口
+├─ ScreenSolveApp.kt          Application：把「跟随系统/白天/夜间」落到 AppCompatDelegate
 └─ util/
-   ├─ ImagePreview.kt         全屏看题目图（黑底 + 缩放 + 关闭按钮）
+   ├─ ImagePreview.kt         全屏看题目图（黑底 + 缩放 + 旋转 90° + 关闭）
    ├─ ZoomImageView.kt        双指/双击缩放、放大后拖动、边界回弹（不引 photoview）
-   ├─ MathTextRenderer.kt     **公式渲染的核心**：整段 Markwon 管 markdown，公式换 token → jlatexmath ImageSpan（详见 §9 踩坑）
+   ├─ MathTextRenderer.kt     **公式渲染的核心**：整段 Markwon 管 markdown，公式换 U+FFFC 占位 → jlatexmath 出图 →
+   │                          `BaselineMathSpan`（自绘 ReplacementSpan，撑行高避免裁字）+ 超宽等比缩放（详见 §9 踩坑）
    └─ DisplayUtils.kt         屏幕尺寸（用 maximumWindowMetrics，保证等于整屏）
 ```
 
@@ -260,7 +263,7 @@ export ANDROID_HOME=/opt/android-sdk
 cd ~/dsh-workspace/ScreenSolve
 ./gradlew assembleLiteDebug        # 默认版本（只视觉）
 ./gradlew assembleFullDebug        # 含离线 OCR
-./gradlew assembleLiteRelease      # 1.79 MB（已签名）
+./gradlew assembleLiteRelease      # 2.28 MB（已签名）
 
 # release 签名：仓库根部的 keystore.properties + keystore/ 一起决定（两者都不进 git）
 # 缺失时 release 包不签名，但依然能编译 —— 换个机器 clone 下来不会卡住

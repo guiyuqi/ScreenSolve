@@ -49,7 +49,7 @@ class RegionSelectView(context: Context, attrs: AttributeSet? = null) : View(con
     }
 
     private val density = resources.displayMetrics.density
-    private val dstRect = Rect()
+    private val dstRect = RectF()
 
     /** 选区（视图坐标系）。 */
     private val selRect = RectF()
@@ -70,6 +70,7 @@ class RegionSelectView(context: Context, attrs: AttributeSet? = null) : View(con
     fun setFrame(bitmap: Bitmap) {
         frame = bitmap
         if (width > 0 && height > 0) {
+            computeDstRect()
             applyDefaultSelection()
         } else {
             pendingDefaultSelection = true
@@ -80,7 +81,7 @@ class RegionSelectView(context: Context, attrs: AttributeSet? = null) : View(con
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        dstRect.set(0, 0, w, h)
+        computeDstRect()
         if (pendingDefaultSelection) {
             pendingDefaultSelection = false
             applyDefaultSelection()
@@ -89,12 +90,41 @@ class RegionSelectView(context: Context, attrs: AttributeSet? = null) : View(con
     }
 
     /**
+     * 计算位图在视图里的目标矩形：**等比缩放居中**，多余部分留黑边。
+     *
+     * 之前是把位图直接铺满整个视图（dstRect = 视图矩形）：截屏时位图比例和屏幕一致所以看不出来，
+     * 换成拍照（4:3）后画面被横向拉伸 —— 看着变形，框选手感也不对。
+     */
+    private fun computeDstRect() {
+        val bmp = frame
+        val w = width
+        val h = height
+        if (bmp == null || w <= 0 || h <= 0) {
+            dstRect.set(0f, 0f, w.toFloat(), h.toFloat())
+            return
+        }
+        val scale = minOf(w.toFloat() / bmp.width, h.toFloat() / bmp.height)
+        val drawW = bmp.width * scale
+        val drawH = bmp.height * scale
+        val left = (w - drawW) / 2f
+        val top = (h - drawH) / 2f
+        dstRect.set(left, top, left + drawW, top + drawH)
+    }
+
+    /**
      * 预选框：屏幕中间偏大的一块，用户在此基础上微调。
      * 底边留到 80% 而不是更下 —— 底部操作栏（约屏幕 13%）会盖住角落的拖拽点。
      */
     private fun applyDefaultSelection() {
         if (width <= 0 || height <= 0) return
-        selRect.set(width * 0.06f, height * 0.10f, width * 0.94f, height * 0.80f)
+        // 预选框落在**图片区域**内（有黑边时不能按整个视图算）
+        val left = dstRect.left
+        val top = dstRect.top
+        val right = dstRect.right
+        val bottom = dstRect.bottom
+        val insetX = (right - left) * 0.04f
+        val insetY = (bottom - top) * 0.08f
+        selRect.set(left + insetX, top + insetY, right - insetX, bottom - insetY * 1.2f)
         hasSelection = true
     }
 
@@ -103,13 +133,16 @@ class RegionSelectView(context: Context, attrs: AttributeSet? = null) : View(con
         if (!hasSelection) return null
         val bmp = frame ?: return null
         if (selRect.width() < 4f || selRect.height() < 4f) return null
-        val scaleX = bmp.width.toFloat() / width
-        val scaleY = bmp.height.toFloat() / height
+        val drawW = (dstRect.right - dstRect.left).coerceAtLeast(1f)
+        val drawH = (dstRect.bottom - dstRect.top).coerceAtLeast(1f)
+        // 等比缩放，所以 x/y 用同一个比例；再减去黑边偏移
+        val scaleX = bmp.width / drawW
+        val scaleY = bmp.height / drawH
         return Rect(
-            (selRect.left * scaleX).toInt().coerceIn(0, bmp.width - 1),
-            (selRect.top * scaleY).toInt().coerceIn(0, bmp.height - 1),
-            (selRect.right * scaleX).toInt().coerceIn(1, bmp.width),
-            (selRect.bottom * scaleY).toInt().coerceIn(1, bmp.height),
+            ((selRect.left - dstRect.left) * scaleX).toInt().coerceIn(0, bmp.width - 1),
+            ((selRect.top - dstRect.top) * scaleY).toInt().coerceIn(0, bmp.height - 1),
+            ((selRect.right - dstRect.left) * scaleX).toInt().coerceIn(1, bmp.width),
+            ((selRect.bottom - dstRect.top) * scaleY).toInt().coerceIn(1, bmp.height),
         )
     }
 

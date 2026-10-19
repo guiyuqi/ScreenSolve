@@ -24,8 +24,8 @@ android {
         applicationId = "com.fragranstea.screensolve"
         minSdk = 29
         targetSdk = 36
-        versionCode = 11
-        versionName = "1.1.0"
+        versionCode = 12
+        versionName = "1.1.1"
 
         // 只保留真机需要的 ABI（ML Kit 会给每个 ABI 各带一份 10MB 级原生库）
         ndk {

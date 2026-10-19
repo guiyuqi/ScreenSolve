@@ -128,8 +128,10 @@ class PhotoCaptureActivity : AppCompatActivity() {
                     it.surfaceProvider = previewView.surfaceProvider
                 }
                 val capture = ImageCapture.Builder()
-                    // 题目图不需要超高分辨率：2048 长边足够看清上下标，解码也快
-                    .setTargetResolution(android.util.Size(2048, 2048))
+                    // 题目图不需要超高分辨率：长边 2048 足够看清上下标，解码也快。
+                    // 比例按 4:3 给（绝大多数手机传感器就是 4:3）—— 之前给的是正方形 2048×2048，
+                    // 相机得去挑一个"最接近正方形"的分辨率，出来的图比例不可控。
+                    .setTargetResolution(android.util.Size(2048, 1536))
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                     .build()
 

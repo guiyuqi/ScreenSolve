@@ -68,6 +68,14 @@
 
 MIT（`LICENSE`，Copyright (c) 2026 guiyuqi）。第三方依赖各自许可，清单见 `README.md` 末尾。
 
+## 0.3 工作约定（重要）
+
+- **构建产物只留在 WSL**（`app/build/outputs/apk/...`）。装机直接用 Windows 的 `adb.exe` +
+  UNC 路径 `\\wsl.localhost\Ubuntu\home\fragranstea\dsh-workspace\ScreenSolve\app\build\outputs\apk\...`，
+  **不要再把 apk 复制到 `/mnt/c/Users/FragransTea/`**（已经清理过一次）。
+- 签名证书备份在 WSL：`~/screensolve-signing-backup/`（jks + keystore.properties + 说明）。
+- 详见 `TOOLCHAIN.md` 末节。
+
 ## 1. 项目是什么
 
 安卓悬浮窗截图搜题：悬浮球 → 截屏 → 拖框选区 → 调 DeepSeek 视觉模型 → 答案卡片（LaTeX 渲染）。

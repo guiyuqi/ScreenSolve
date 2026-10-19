@@ -357,3 +357,20 @@ git -c http.proxy="$PROXY" clone https://github.com/owner/repo.git
 | 代理开着却探测不到 | 代理客户端里打开**"允许局域网连接"**；或改用 WSL 镜像网络模式（`.wslconfig` 加 `networkingMode=mirrored` 后 `wsl --shutdown`——注意会重启 WSL、当前会话会断） |
 | 换了代理端口 | `export GITHUB_PROXY_PORT=<新端口>`；要永久改就改 `~/.ssh/config` 与两个脚本里的默认值 |
 | SSH 认证失败 | 确认公钥仍在 https://github.com/settings/keys （本机公钥：`~/.ssh/id_ed25519.pub`） |
+
+## 约定：产物只留在 WSL，不往 Windows 侧复制
+
+adb 用的是 Windows 侧的 `adb.exe`，它会"读不到 WSL 路径"，但这**不构成**把 apk 拷到 `/mnt/c` 的理由。
+Windows 进程可以直接读 WSL 里的文件，用 UNC 路径即可：
+
+```bash
+cd ~/dsh-workspace/ScreenSolve
+APK='\\wsl.localhost\Ubuntu\home\fragranstea\dsh-workspace\ScreenSolve\app\build\outputs\apk\lite\debug\app-lite-debug.apk'
+"/mnt/c/Users/FragransTea/platform-tools/adb.exe" install -r "$APK"
+```
+
+（已用 PowerShell `Test-Path` / `Get-Item` 验证该 UNC 路径从 Windows 可读，字节数与 WSL 内一致。）
+
+- 构建产物统一放在 `app/build/outputs/apk/<flavor>/<buildType>/`，**不要再复制到 `/mnt/c/Users/...`**
+- 签名证书备份在 WSL：`~/screensolve-signing-backup/`（jks + 口令 + 说明）
+  —— 注意 WSL 目录**不算异地备份**，需要自己再存一份到网盘/U 盘

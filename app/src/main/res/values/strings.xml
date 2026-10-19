@@ -156,4 +156,13 @@
     <string name="photo_hint">对准题目，拍完再框选</string>
     <string name="photo_cancel">取消拍照</string>
     <string name="photo_permission_denied">没有相机权限，无法拍照</string>
+
+    <!-- 1.1.2：外观 -->
+    <string name="settings_section_theme">外观</string>
+    <string name="settings_theme_system">跟随系统（默认）</string>
+    <string name="settings_theme_light">白天</string>
+    <string name="settings_theme_dark">夜间</string>
+    <string name="image_rotate">旋转 90°</string>
+    <string name="photo_torch">手电补光</string>
+    <string name="photo_torch_unavailable">这台设备没有闪光灯</string>
 </resources>

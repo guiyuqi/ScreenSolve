@@ -17,12 +17,14 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.fragranstea.screensolve.R
 import com.fragranstea.screensolve.data.HistoryEntry
 import com.fragranstea.screensolve.data.HistoryStore
 import com.fragranstea.screensolve.data.HistoryTurn
 import com.fragranstea.screensolve.data.SecureKeyStore
 import com.fragranstea.screensolve.data.SettingsStore
+import com.fragranstea.screensolve.recognize.PromptBuilder
 import com.fragranstea.screensolve.recognize.SolveEngine
 import com.fragranstea.screensolve.recognize.SolveOutcome
 import com.fragranstea.screensolve.recognize.SolveSession
@@ -84,14 +86,14 @@ class ConversationActivity : AppCompatActivity() {
     private fun buildLayout(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFFF7F7F7.toInt())
+            setBackgroundColor(pageBg())
         }
 
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(10), dp(12), dp(10))
-            setBackgroundColor(Color.WHITE)
+            setBackgroundColor(surface())
         }
         bar.addView(
             Button(this).apply {
@@ -130,13 +132,17 @@ class ConversationActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(10), dp(8), dp(10), dp(8))
-            setBackgroundColor(Color.WHITE)
+            setBackgroundColor(surface())
         }
         input = EditText(this).apply {
             hint = getString(R.string.answer_follow_up_hint)
             textSize = 14f
             maxLines = 3
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            // 输入行背景是我们自己画的，所以文字/提示色也必须显式指定，
+            // 否则夜间模式下会出现"白底白字"，看起来像输入框坏了
+            setTextColor(colorTextPrimary())
+            setHintTextColor(ContextCompat.getColor(this@ConversationActivity, R.color.text_hint))
         }
         sendButton = Button(this).apply {
             text = getString(R.string.answer_follow_up_send)
@@ -224,6 +230,7 @@ class ConversationActivity : AppCompatActivity() {
             setLineSpacing(5f * density, 1f)
             setPadding(dp(12), dp(9), dp(12), dp(9))
             maxWidth = maxBubbleWidth - dp(26)   // 长文本自动换行，短文本保持气泡收缩
+            setTextColor(colorTextPrimary())
             isClickable = true
             isLongClickable = true
             setOnLongClickListener {
@@ -237,15 +244,23 @@ class ConversationActivity : AppCompatActivity() {
             text,
             body.textSize,
             body.currentTextColor,
-            maxBubbleWidth - dp(28),
+            // 必须传"内容宽度"：maxWidth 是含内边距的外框，公式按它排会顶出气泡右边
+            maxBubbleWidth - dp(26) - dp(24),
         )
 
         val bubble = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 cornerRadius = dp(14).toFloat()
-                setColor(if (fromUser) BUBBLE_USER_COLOR else BUBBLE_AI_COLOR)
-                if (!fromUser) setStroke(dp(1), BUBBLE_AI_STROKE)
+                setColor(
+                    ContextCompat.getColor(
+                        this@ConversationActivity,
+                        if (fromUser) R.color.bubble_user else R.color.bubble_ai,
+                    ),
+                )
+                if (!fromUser) {
+                    setStroke(dp(1), ContextCompat.getColor(this@ConversationActivity, R.color.surface_border))
+                }
             }
             setPadding(dp(12), dp(9), dp(12), dp(9))
         }
@@ -277,7 +292,7 @@ class ConversationActivity : AppCompatActivity() {
                 TextView(this).apply {
                     setText(labelRes)
                     textSize = 11f
-                    setTextColor(0xFF888888.toInt())
+                    setTextColor(ContextCompat.getColor(this@ConversationActivity, R.color.text_hint))
                     setPadding(0, dp(10), 0, dp(2))
                 },
                 LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT),
@@ -285,7 +300,7 @@ class ConversationActivity : AppCompatActivity() {
         }
         val body = TextView(this).apply {
             textSize = if (bold) 19f else 15f
-            setTextColor(if (muted) 0xFF555555.toInt() else 0xFF222222.toInt())
+            setTextColor(if (muted) ContextCompat.getColor(this@ConversationActivity, R.color.text_muted) else colorTextPrimary())
             typeface = if (bold) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
             setLineSpacing(5f * density, 1f)
         }
@@ -295,13 +310,13 @@ class ConversationActivity : AppCompatActivity() {
             text,
             body.textSize,
             body.currentTextColor,
-            (DisplayUtils.screenBounds(this).width() - dp(40)),
+            (DisplayUtils.screenBounds(this).width() - dp(40) - dp(28)),
         )
         content.addView(body, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
     }
 
     private fun divider(): View = View(this).apply {
-        setBackgroundColor(0xFFDDDDDD.toInt())
+        setBackgroundColor(ContextCompat.getColor(this@ConversationActivity, R.color.surface_border))
         layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(1))
     }
 
@@ -328,7 +343,7 @@ class ConversationActivity : AppCompatActivity() {
         Thread({
             val outcome = try {
                 val active = session ?: buildSession(jpeg, entry).also { session = it }
-                active.appendUserText(question)
+                active.appendUserText(question + PromptBuilder.followUpInstruction())
                 engine.followUp(active.messages) { text ->
                     // 思考过程只在视觉上留个动静，这里不做流式刷新（Activity 里没必要）
                     runOnUiThread { thinkingView?.text = getString(R.string.answer_thinking, text.takeLast(60)) }
@@ -428,14 +443,17 @@ class ConversationActivity : AppCompatActivity() {
 
     private fun dp(value: Int): Int = (value * density).toInt()
 
+    private fun pageBg(): Int = ContextCompat.getColor(this, R.color.page_bg)
+
+    private fun surface(): Int = ContextCompat.getColor(this, R.color.surface)
+
+    private fun colorTextPrimary(): Int = ContextCompat.getColor(this, R.color.text_primary)
+
     companion object {
         /** 打开会话视图时传历史记录 id */
         const val EXTRA_ENTRY_ID = "entry_id"
 
         /** 气泡配色：自己问的浅蓝靠右，模型答的白底靠左 */
-        private const val BUBBLE_USER_COLOR = 0xFFDCEBFF.toInt()
-        private const val BUBBLE_AI_COLOR = 0xFFFFFFFF.toInt()
-        private const val BUBBLE_AI_STROKE = 0xFFE3E3E3.toInt()
 
         private const val TAG = "Conversation"
         private const val MATCH_PARENT = ViewGroup.LayoutParams.MATCH_PARENT

@@ -41,7 +41,7 @@ object MathTextRenderer {
      * 换行判断不可靠 —— 公式经常直接冲出控件右边界被裁掉，
      * 阈值放宽一点让大公式自己占一行，就不会撞上这个坑。
      */
-    private const val BLOCK_RATIO = 0.4f
+    private const val BLOCK_RATIO = 0.33f
 
     /** 公式在图上的占位符（U+FFFC 对象替换符，渲染时被 ImageSpan 顶掉） */
     private const val PLACEHOLDER = "\uFFFC"

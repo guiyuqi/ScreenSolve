@@ -35,6 +35,7 @@ import com.fragranstea.screensolve.data.SecureKeyStore
 import com.fragranstea.screensolve.data.SettingsStore
 import com.fragranstea.screensolve.recognize.OcrRecognizer
 import com.fragranstea.screensolve.recognize.SolveSession
+import com.fragranstea.screensolve.recognize.PromptBuilder
 import com.fragranstea.screensolve.recognize.SolveEngine
 import com.fragranstea.screensolve.recognize.SolveError
 import com.fragranstea.screensolve.recognize.SolveOutcome
@@ -544,7 +545,7 @@ class OverlayService :
             toast(R.string.toast_follow_up_lost)
             return
         }
-        session.appendUserText(question)
+        session.appendUserText(question + PromptBuilder.followUpInstruction())
         card.showLoading()
         Log.i(TAG, "追问：${question.take(80)}")
 

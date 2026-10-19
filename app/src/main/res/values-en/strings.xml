@@ -138,4 +138,12 @@
     <string name="photo_hint">Point at the question, then crop</string>
     <string name="photo_cancel">Cancel</string>
     <string name="photo_permission_denied">Camera permission denied</string>
+
+    <string name="settings_section_theme">Appearance</string>
+    <string name="settings_theme_system">Follow system (default)</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="image_rotate">Rotate 90°</string>
+    <string name="photo_torch">Flashlight</string>
+    <string name="photo_torch_unavailable">No flash unit on this device</string>
 </resources>

@@ -10,6 +10,7 @@ import androidx.appcompat.widget.SwitchCompat
 import com.fragranstea.screensolve.R
 import com.fragranstea.screensolve.data.SecureKeyStore
 import com.fragranstea.screensolve.data.SettingsStore
+import com.fragranstea.screensolve.ScreenSolveApp
 import com.fragranstea.screensolve.recognize.OcrRecognizer
 import com.fragranstea.screensolve.ui.overlay.OverlayService
 
@@ -32,6 +33,9 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var sourceCameraRadio: RadioButton
     private lateinit var bubbleDefaultRadio: RadioButton
     private lateinit var bubbleDotRadio: RadioButton
+    private lateinit var themeSystemRadio: RadioButton
+    private lateinit var themeLightRadio: RadioButton
+    private lateinit var themeDarkRadio: RadioButton
     private lateinit var thinkingSwitch: SwitchCompat
     private lateinit var promptInput: EditText
 
@@ -50,6 +54,9 @@ class SettingsActivity : AppCompatActivity() {
         sourceCameraRadio = findViewById(R.id.rbSourceCamera)
         bubbleDefaultRadio = findViewById(R.id.rbBubbleDefault)
         bubbleDotRadio = findViewById(R.id.rbBubbleDot)
+        themeSystemRadio = findViewById(R.id.rbThemeSystem)
+        themeLightRadio = findViewById(R.id.rbThemeLight)
+        themeDarkRadio = findViewById(R.id.rbThemeDark)
         thinkingSwitch = findViewById(R.id.swDeepThinking)
         promptInput = findViewById(R.id.etPrompt)
 
@@ -96,6 +103,12 @@ class SettingsActivity : AppCompatActivity() {
             bubbleDefaultRadio.isChecked = true
         }
 
+        when (settings.themeMode) {
+            SettingsStore.ThemeMode.LIGHT -> themeLightRadio.isChecked = true
+            SettingsStore.ThemeMode.DARK -> themeDarkRadio.isChecked = true
+            SettingsStore.ThemeMode.SYSTEM -> themeSystemRadio.isChecked = true
+        }
+
         thinkingSwitch.isChecked = settings.deepThinking
         promptInput.setText(settings.customPrompt)
     }
@@ -125,6 +138,17 @@ class SettingsActivity : AppCompatActivity() {
         // 切到拍照模式就不需要录屏会话了，顺手释放，避免状态栏一直挂着"正在录制"
         if (sourceChanged && source == SettingsStore.Source.CAMERA) {
             OverlayService.releaseSession(this)
+        }
+
+        val themeMode = when {
+            themeLightRadio.isChecked -> SettingsStore.ThemeMode.LIGHT
+            themeDarkRadio.isChecked -> SettingsStore.ThemeMode.DARK
+            else -> SettingsStore.ThemeMode.SYSTEM
+        }
+        if (settings.themeMode != themeMode) {
+            settings.themeMode = themeMode
+            // 立即生效（会重建界面）
+            ScreenSolveApp.applyTheme(themeMode)
         }
 
         val bubbleStyle = if (bubbleDotRadio.isChecked) {

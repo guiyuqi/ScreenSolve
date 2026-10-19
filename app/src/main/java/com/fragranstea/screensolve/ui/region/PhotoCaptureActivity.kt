@@ -43,8 +43,11 @@ class PhotoCaptureActivity : AppCompatActivity() {
 
     private lateinit var previewView: PreviewView
     private lateinit var shutter: View
+    private lateinit var torchButton: TextView
 
     private var imageCapture: ImageCapture? = null
+    private var camera: androidx.camera.core.Camera? = null
+    private var torchOn = false
     private val cameraExecutor = Executors.newSingleThreadExecutor()
     private var handled = false
 
@@ -100,6 +103,26 @@ class PhotoCaptureActivity : AppCompatActivity() {
             },
         )
 
+        // 手电（补光）开关：晚上/暗光拍纸质题目必用；没有闪光灯的设备点了会提示
+        torchButton = TextView(this).apply {
+            text = "💡"
+            textSize = 20f
+            gravity = Gravity.CENTER
+            setTextColor(0xFFFFFFFF.toInt())
+            setBackgroundColor(0x66000000)
+            contentDescription = getString(R.string.photo_torch)
+            setOnClickListener { toggleTorch() }
+            alpha = 0.6f
+        }
+        root.addView(
+            torchButton,
+            FrameLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt()).apply {
+                gravity = Gravity.TOP or Gravity.END
+                topMargin = (48 * density).toInt()
+                marginEnd = (16 * density).toInt()
+            },
+        )
+
         shutter = View(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
@@ -136,7 +159,12 @@ class PhotoCaptureActivity : AppCompatActivity() {
                     .build()
 
                 provider.unbindAll()
-                provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture)
+                camera = provider.bindToLifecycle(
+                    this,
+                    CameraSelector.DEFAULT_BACK_CAMERA,
+                    preview,
+                    capture,
+                )
                 imageCapture = capture
             } catch (t: Throwable) {
                 Log.e(TAG, "相机启动失败", t)
@@ -144,6 +172,18 @@ class PhotoCaptureActivity : AppCompatActivity() {
                 cancel()
             }
         }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun toggleTorch() {
+        val cam = camera
+        if (cam == null || !cam.cameraInfo.hasFlashUnit()) {
+            Toast.makeText(this, R.string.photo_torch_unavailable, Toast.LENGTH_SHORT).show()
+            return
+        }
+        torchOn = !torchOn
+        cam.cameraControl.enableTorch(torchOn)
+        torchButton.alpha = if (torchOn) 1f else 0.6f
+        torchButton.setBackgroundColor(if (torchOn) 0x99FFC107.toInt() else 0x66000000)
     }
 
     private fun takePhoto() {
@@ -227,6 +267,7 @@ class PhotoCaptureActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        runCatching { if (torchOn) camera?.cameraControl?.enableTorch(false) }
         cameraExecutor.shutdown()
         if (isFinishing && !handled) {
             handled = true

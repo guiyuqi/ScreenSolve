@@ -12,6 +12,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.fragranstea.screensolve.R
 import com.fragranstea.screensolve.data.HistoryEntry
 import com.fragranstea.screensolve.data.HistoryStore
@@ -80,7 +81,7 @@ class HistoryActivity : AppCompatActivity() {
             val size = (88 * density).toInt()
             layoutParams = LinearLayout.LayoutParams(size, size)
             scaleType = ImageView.ScaleType.CENTER_CROP
-            setBackgroundColor(0xFFEEEEEE.toInt())
+            setBackgroundColor(ContextCompat.getColor(this@HistoryActivity, R.color.page_bg))
             store.imageFile(entry)?.let { file ->
                 // 缩略图按 1/4 采样解码，避免解码整张原图
                 val options = BitmapFactory.Options().apply { inSampleSize = 4 }
@@ -106,14 +107,14 @@ class HistoryActivity : AppCompatActivity() {
                 append(getString(R.string.history_answer_prefix, plain(entry.answer).take(30)))
             }
             textSize = 13f
-            setTextColor(0xFF1F6FEB.toInt())
+            setTextColor(ContextCompat.getColor(this@HistoryActivity, R.color.brand_text))
             maxLines = 1
             setPadding(0, (4 * density).toInt(), 0, 0)
         }
         val time = TextView(this).apply {
             text = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(entry.createdAt))
             textSize = 11f
-            setTextColor(0xFF999999.toInt())
+            setTextColor(ContextCompat.getColor(this@HistoryActivity, R.color.text_hint))
             setPadding(0, (4 * density).toInt(), 0, 0)
         }
         texts.addView(title, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 历史/会话页配色（白天） -->
+    <color name="page_bg">#FFF7F7F7</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="surface_border">#FFE3E3E3</color>
+    <color name="text_primary">#FF222222</color>
+    <color name="text_muted">#FF555555</color>
+    <color name="text_hint">#FF888888</color>
+    <color name="bubble_user">#FFDCEBFF</color>
+    <color name="bubble_ai">#FFFFFFFF</color>
+    <color name="brand_text">#FF1F6FEB</color>
+</resources>

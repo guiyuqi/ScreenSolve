@@ -35,6 +35,13 @@ class SettingsStore(context: Context) {
         DOT(28, 10),
     }
 
+    /** 外观：跟随系统 / 强制白天 / 强制夜间 */
+    enum class ThemeMode {
+        SYSTEM,
+        LIGHT,
+        DARK,
+    }
+
     /** 题目从哪来：屏幕上看到的（截屏）还是拿相机拍。 */
     enum class Source {
         /** 截屏 + 框选（默认） */
@@ -60,6 +67,14 @@ class SettingsStore(context: Context) {
             else -> BubbleStyle.DEFAULT
         }
         set(value) = prefs.edit().putString(KEY_BUBBLE_STYLE, value.name).apply()
+
+    var themeMode: ThemeMode
+        get() = when (prefs.getString(KEY_THEME, null)) {
+            ThemeMode.LIGHT.name -> ThemeMode.LIGHT
+            ThemeMode.DARK.name -> ThemeMode.DARK
+            else -> ThemeMode.SYSTEM
+        }
+        set(value) = prefs.edit().putString(KEY_THEME, value.name).apply()
 
     var source: Source
         get() = when (prefs.getString(KEY_SOURCE, null)) {
@@ -97,5 +112,6 @@ class SettingsStore(context: Context) {
         private const val KEY_PROMPT = "custom_prompt"
         private const val KEY_BUBBLE_STYLE = "bubble_style"
         private const val KEY_SOURCE = "source"
+        private const val KEY_THEME = "theme_mode"
     }
 }

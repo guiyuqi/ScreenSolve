@@ -1,11 +1,31 @@
 # 交接文档（HANDOVER）
 
 > 面向"下一个接手的人/会话"。读完这份就能无缝继续，不必回翻聊天记录。
-> 最后更新：v1.0.0 发布（M1–M5 全部完成、正式签名出包）。
+> 最后更新：v1.1.2（悬浮球双样式 / 选区悬浮窗 / 拍照模式 / 外观三档 / 图片旋转 / 相机补光）。
 
 ---
 
-## 0. 发布状态（1.1.1）
+## 0. 发布状态（1.1.2）
+
+**1.1.2 修复 6 项（来自真机使用反馈；代码已改、四端产物已构建，设备未回归）**
+
+1. **历史会话里公式被截断**：`ConversationActivity` 传给 `MathTextRenderer` 的是气泡**外框**宽度，
+   比内容宽度大 → 公式画出气泡右边。改为传内容宽度（外框 − 内边距），`MathTextRenderer.BLOCK_RATIO` 0.40 → 0.33。
+2. **图片旋转**：`ImagePreview` 右上角加 **⟳ 旋转 90°**（`rotateBitmap()`，原图保留在内存里以便转回）。
+3. **会话页输入框看不见字**：输入行背景自绘固定色、文字色跟随主题 → 夜间白底白字。
+   现在 `setTextColor/setHintTextColor` 显式指定，颜色统一走 `R.color.{page_bg,surface,text_primary,text_hint,bubble_*}`。
+4. **追问把追问当新题**：追问时追加 `PromptBuilder.followUpInstruction()`——
+   只回答这一问、不重复题干、`question` 留空。两处入口（悬浮卡片 / 历史会话）都套上了。
+5. **外观设置**：`SettingsStore.ThemeMode{SYSTEM,LIGHT,DARK}` + `ScreenSolveApp`（Application）里
+   `AppCompatDelegate.setDefaultNightMode`；主题基类是 `Theme.AppCompat.DayNight.NoActionBar`，日/夜各一套颜色资源
+   （`values/colors_history.xml`、`values-night/colors_history.xml`）。设置页「外观」三选一，保存即生效。
+6. **相机补光**：`PhotoCaptureActivity` 右上角 💡 开关手电（`CameraControl.enableTorch`），
+   无闪光灯设备给提示，退出页面自动关灯。
+
+**产物**：lite release 2.28 MB / full release 16.70 MB / lite debug 11.8 MB / full debug 27.4 MB（versionCode 13）
+**GitHub**：v1.0.0、v1.1.0 已发布；v1.1.1 / v1.1.2 待发（需要 Contents 写权限的 token）。
+
+## 0.1 发布状态（1.1.1）
 
 **1.1.1 修复（代码已改、四端产物已构建；未在真机回归 —— 设备当时从 USB 掉线）**
 - 选区视图 `RegionSelectView` 从"拉伸铺满视图"改为**等比缩放居中 + 黑边**：
@@ -15,7 +35,7 @@
 - `PhotoCaptureActivity` 的 `ImageCapture` 目标分辨率 `2048×2048`（正方形）→ `2048×1536`（4:3，传感器原生比例）。
 - 需要真机确认的点：拍照后选区里画面比例正常、裁剪结果与所见一致、截屏模式行为不变。
 
-## 0.1 发布状态（1.1.0）
+## 0.2 发布状态（1.1.0）
 
 **1.1.0 新增（均已真机验证）**
 1. **悬浮球两种样式**：`SettingsStore.BubbleStyle{sizeDp, visualSizeDp}` —— 默认 56dp 蓝色放大镜 / 极简白点（视觉 10dp、可点区域 28dp）。

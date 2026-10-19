@@ -13,9 +13,17 @@ package com.fragranstea.screensolve.recognize
 object PromptBuilder {
 
     /**
-     * `$` 在 Kotlin 原始字符串里会被当成模板起始，用它拼一下。
-     * （LaTeX 必须用真正的 ASCII `$` 定界，卡片侧的数学引擎认这个。）
+     * 多轮追问的附加指令。
+     *
+     * 不加这段时，模型会把"追问"当成新题重新走一遍"题目/答案/解析"模板，
+     * 历史里就会出现"题目：<我的问题> 答案：..."这种自我回显。
+     * 这里明确要求：只回答这一问、不要重复题干、question 字段留空。
      */
+    fun followUpInstruction(): String =
+        "\n\n（这是对上面这道题的追问，不要重新解题、也不要重复题干。" +
+            "直接把这一问的回答写进 answer 字段，question 字段留空字符串，" +
+            "只有在确实需要展开推理时才填 steps。）"
+
     private const val D = "\$"
 
     private const val SCHEMA = """{

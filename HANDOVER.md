@@ -14,7 +14,11 @@
 - 日志确认横滑生效：`宽=1908/1134/977 > 阈值=636` 的三条长公式都单独成块
 - LaTeX 命令兜底生效：`\pmod{9}` → `(\mathrm{mod}\ 9)`，`136 ≡ 1 (mod 9)` 正常显示
 - 设备已切回**正式签名 release 包**（`flags` 无 `DEBUGGABLE`，渲染日志 0 条）✅
-- `v1.1.3` tag 已移动到最终提交 `2eaa4ee`（原先停在 0bf4885，不含 \pmod 修复与日志）
+- `v1.1.3` tag 已对齐最终提交（当前 HEAD）
+- **已发布**：<https://github.com/guiyuqi/ScreenSolve/releases/tag/v1.1.3>
+  lite `sha256=8f38b8d4…dfdec` / full `sha256=cf3190a3…f65df7350`，与 GitHub 记录一致；
+  实际下载 lite 包校验一致（http=200, 2,298,112 B）
+- 发布用的 token 存于 `~/.config/screensolve/token`（600），`scripts/publish-release.sh` 自动读取
 
 - 需求来源：用户反馈"长公式压缩在一屏里字符太小"。做法对齐 DeepSeek App——保持字号、公式自己横滑。
 - 新增 `util/MathContent.kt`：把内容拆成「文本块 + 公式块」铺进 `LinearLayout`；
@@ -61,7 +65,7 @@
    无闪光灯设备给提示，退出页面自动关灯。
 
 **产物**：lite release 2.28 MB / full release 16.70 MB / lite debug 11.8 MB / full debug 27.4 MB（versionCode 13）
-**GitHub**：v1.0.0、v1.1.0、**v1.1.1 均已发布**；**v1.1.2 待发**（需要 Contents 写权限的 token，或用户自行 `./scripts/publish-release.sh`）。
+**GitHub**：v1.0.0 / v1.1.0 / v1.1.1 / v1.1.2 / v1.1.3 **全部已发布**。
 
 ## 0.1 发布状态（1.1.1）
 

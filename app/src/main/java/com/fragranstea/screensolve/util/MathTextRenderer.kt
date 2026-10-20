@@ -61,6 +61,13 @@ object MathTextRenderer {
         buildMath(latex, textSizePx, color, 0)
 
     /** 把公式 Drawable 画成位图（供 ImageView 在横滑容器里显示）。 */
+    /** 公式渲染失败时的可读兜底文本：去掉命令反斜杠与花括号，至少不显示成乱码 */
+    fun readableFallback(latex: String): String = latex
+        .replace(Regex("\\\\[a-zA-Z]+"), "")   // \pmod 之类命令名直接丢掉
+        .replace(Regex("[{}]"), "")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+
     fun toBitmap(drawable: Drawable): android.graphics.Bitmap {
         val w = drawable.intrinsicWidth.coerceAtLeast(1)
         val h = drawable.intrinsicHeight.coerceAtLeast(1)
@@ -174,7 +181,7 @@ object MathTextRenderer {
             // 编译期没问题，Android 运行时直接 NoSuchMethodError（踩过一次）。
             val drawable = drawables[index]
             if (drawable == null) {
-                out.replace(start, start + 1, latex)   // 画不出来就保留源码
+                out.replace(start, start + 1, readableFallback(latex))   // 画不出来就给可读文本
             } else {
                 out.setSpan(
                     BaselineMathSpan(drawable),
@@ -196,7 +203,31 @@ object MathTextRenderer {
      */
     private val BAD_D_COMMAND = Regex("\\\\d([a-zA-Z])(?![a-zA-Z])")
 
-    private fun sanitize(latex: String): String = latex.replace(BAD_D_COMMAND) { m -> "d" + m.groupValues[1] }
+    /**
+     * jlatexmath 不支持的命令做等价改写，避免整段公式退化成源码。
+     *
+     * 真实遇到过的：模型爱写 `\pmod{9}`、`\bmod`、`\text{...}`、`\dfrac`，
+     * 这些在 jlatexmath 里要么不认、要么行为不同，一抛异常整条公式就没了。
+     */
+    /** `\pmod{m}` 与不带花括号的 `\pmod m` 都要吃掉 */
+    private val PMOD_BRACED = Regex("\\\\pmod\\s*\\{([^{}]*)\\}")
+    private val PMOD_BARE = Regex("\\\\pmod\\s*([^\\\\\\s{}]+)")
+    private val VERT = Regex("\\\\vert(?![a-zA-Z])")
+    private val TEXTSTYLE = Regex("\\\\(?:text|textrm|textit|operatorname)\\s*\\{([^{}]*)\\}")
+
+    private fun sanitize(latex: String): String {
+        var out = latex.replace(BAD_D_COMMAND) { m -> "d" + m.groupValues[1] }
+        // \pmod{m} / \pmod m → \ (\mathrm{mod}\ m)
+        out = out.replace(PMOD_BRACED) { m -> "\\ (\\mathrm{mod}\\ " + m.groupValues[1] + ")" }
+        out = out.replace(PMOD_BARE) { m -> "\\ (\\mathrm{mod}\\ " + m.groupValues[1] + ")" }
+        out = out.replace(VERT, "|")
+        // text/operatorname 系列统一改写成 \mathrm（jlatexmath 认这个）
+        out = out.replace(TEXTSTYLE) { m -> "\\mathrm{" + m.groupValues[1] + "}" }
+        out = out.replace("\\bmod", "\\mathrm{mod}")
+        out = out.replace("\\dfrac", "\\frac").replace("\\tfrac", "\\frac")
+        out = out.replace("\\displaystyle", "").replace("\\limits", "")
+        return out
+    }
 
     /**
      * 公式用的 ReplacementSpan：**底边贴基线**，并且强制把行高撑到能装下图片。

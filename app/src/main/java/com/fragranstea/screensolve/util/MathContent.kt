@@ -105,7 +105,7 @@ object MathContent {
         if (drawable == null) {
             // 画不出来就退回源码文本，别让用户看到空白
             return TextView(context).apply {
-                text = latex
+                text = MathTextRenderer.readableFallback(latex)
                 setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, textSizePx)
                 setTextColor(color)
                 style(this)

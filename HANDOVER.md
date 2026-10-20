@@ -98,6 +98,8 @@
 - GitHub Release 已发布：<https://github.com/guiyuqi/ScreenSolve/releases/tag/v1.0.0>
   资产名 `ScreenSolve-lite-release.apk` / `ScreenSolve-full-release.apk`，
   平台上记录的 sha256 与本地产物一致（lite `15ca5137…be3a9`、full `fa574ccd…b632f57f`）。
+- token 存放：`./scripts/set-token.sh` 一次性写入 `~/.config/screensolve/token`（600），
+  发布脚本自动读取，不用每次手输；细节见 TOOLCHAIN「发布 token 存哪里」。
 - 发布脚本：`scripts/publish-release.sh`（`GITHUB_TOKEN=... ./scripts/publish-release.sh`，
   需要 fine-grained token 的 **Contents: Read and write**；token 只经环境变量传递，不落文件）。
 - 使用说明见 `README.md`。

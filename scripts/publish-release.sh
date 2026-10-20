@@ -31,7 +31,23 @@ ASSET_NAME=(
     "ScreenSolve-full-release.apk"
 )
 
-: "${GITHUB_TOKEN:?请先 export GITHUB_TOKEN=你的 token}"
+# token 来源优先级：环境变量 → 本机私有配置文件（./scripts/set-token.sh 写入）
+# 这样日常发布不用再手动带 token，也避免把 token 写进仓库或 shell rc。
+TOKEN_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/screensolve/token"
+if [ -z "${GITHUB_TOKEN:-}" ] && [ -f "$TOKEN_FILE" ]; then
+    GITHUB_TOKEN="$(tr -d '\r\n' < "$TOKEN_FILE")"
+    echo "== 使用本机保存的 token（$TOKEN_FILE）"
+fi
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+    cat >&2 <<'MSG'
+没有找到 GitHub token，两种方式任选其一：
+  1) 一次性设置（推荐）：./scripts/set-token.sh
+     → 存到 ~/.config/screensolve/token（权限 600，不进仓库、不进 shell 历史）
+  2) 临时使用：GITHUB_TOKEN=xxx ./scripts/publish-release.sh
+token 需要对该仓库有「代码内容 / Contents: Read and write」权限。
+MSG
+    exit 1
+fi
 
 for f in "${ASSET_LOCAL[@]}"; do
     [ -f "$f" ] || { echo "缺少产物: $f"; exit 1; }

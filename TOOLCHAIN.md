@@ -412,3 +412,30 @@ APK='\\wsl.localhost\Ubuntu\home\fragranstea\dsh-workspace\ScreenSolve\app\build
   - `降级为文本: [latex]`
   - `MathContent: 长公式改横滑: 宽=1908 > 阈值=636 latex=[...]`
 - **正式包一律不输出**（避免刷屏、也避免把题目内容写进日志）。
+
+## 发布 token 存哪里（别每次手输）
+
+**一次性设置**（推荐）：
+
+```bash
+cd ~/dsh-workspace/ScreenSolve
+./scripts/set-token.sh          # 粘贴 token，输入不回显
+```
+
+- 存到 `~/.config/screensolve/token`，文件权限 `600`、目录 `700`
+- `scripts/publish-release.sh` 会**自动读取**，之后发布不用再带 token
+- 优先级：`GITHUB_TOKEN` 环境变量 > 该文件（临时用别的 token 时仍可 `GITHUB_TOKEN=xxx ...`）
+
+**为什么放这儿而不是别处**
+
+| 做法 | 问题 |
+|---|---|
+| 写进仓库里的 `.env` / 源码 | 会进 git，等于公开泄露（`.gitignore` 已忽略 `.env*`） |
+| 写进 `~/.bashrc` 的 `export` | 所有子进程、`env` 输出、日志都能看到 |
+| `git config credential.helper store` | 明文存在 `~/.git-credentials`，且只管 git 不管 API |
+| **`~/.config/screensolve/token` + 600** | 只有当前用户可读，不进仓库、不进 shell 历史 ✅ |
+
+**token 本身怎么建**：fine-grained token，只勾 `Only select repositories → ScreenSolve`，
+权限只给 **代码内容 / Contents: Read and write**，有效期按需（到期后重跑 `set-token.sh` 覆盖即可）。
+
+**换机器/重装 WSL**：token 文件会丢，重跑一次 `set-token.sh` 即可。

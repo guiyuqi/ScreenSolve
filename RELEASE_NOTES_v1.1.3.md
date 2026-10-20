@@ -22,3 +22,13 @@
 | `ScreenSolve-full-release.apk` | 16.69 MB |
 
 与 1.1.x 同签名，可直接覆盖升级，设置与历史保留。
+
+### 开发者注意（发版必读）
+
+- 发布包**只能**由 `./gradlew assembleLiteRelease` / `assembleFullRelease` 产出。
+- 调试包可以用发布证书签名：`./gradlew assembleLiteDebug -PreleaseSignedDebug`，
+  这样能覆盖安装到已装 release 的手机上而**不丢 API Key / 历史**，
+  但它带 `DEBUGGABLE` 标志、且会输出渲染调试日志（`MathTextRenderer` / `MathContent`），**不可作为发布包**。
+- 发版前自查：`apksigner verify --print-certs <apk>` 看证书指纹，
+  并用 `apkanalyzer manifest print <apk>` 确认没有 `android:debuggable="true"`。
+  详见 `TOOLCHAIN.md`「调试包与发布包的签名」。

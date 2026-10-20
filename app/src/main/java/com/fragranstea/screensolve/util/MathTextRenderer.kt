@@ -34,6 +34,13 @@ object MathTextRenderer {
 
     private const val TAG = "MathTextRenderer"
 
+    /**
+     * 是否输出调试日志。**只有 debug 构建才打开**（由 ScreenSolveApp 按 R.bool.is_debug_build 设置），
+     * 正式包不开，避免刷屏和泄露题目内容。
+     */
+    @Volatile
+    var verboseLogging: Boolean = false
+
     /** 一段数学表达式在原文中的位置与内容，供上层做"长公式单独成块"的切分。 */
     data class MathMatch(
         val start: Int,
@@ -181,6 +188,7 @@ object MathTextRenderer {
             // 编译期没问题，Android 运行时直接 NoSuchMethodError（踩过一次）。
             val drawable = drawables[index]
             if (drawable == null) {
+                if (verboseLogging) Log.w(TAG, "降级为文本: [$latex]")
                 out.replace(start, start + 1, readableFallback(latex))   // 画不出来就给可读文本
             } else {
                 out.setSpan(
@@ -216,6 +224,7 @@ object MathTextRenderer {
     private val TEXTSTYLE = Regex("\\\\(?:text|textrm|textit|operatorname)\\s*\\{([^{}]*)\\}")
 
     private fun sanitize(latex: String): String {
+        val before = latex
         var out = latex.replace(BAD_D_COMMAND) { m -> "d" + m.groupValues[1] }
         // \pmod{m} / \pmod m → \ (\mathrm{mod}\ m)
         out = out.replace(PMOD_BRACED) { m -> "\\ (\\mathrm{mod}\\ " + m.groupValues[1] + ")" }
@@ -226,6 +235,9 @@ object MathTextRenderer {
         out = out.replace("\\bmod", "\\mathrm{mod}")
         out = out.replace("\\dfrac", "\\frac").replace("\\tfrac", "\\frac")
         out = out.replace("\\displaystyle", "").replace("\\limits", "")
+        if (verboseLogging && out != before) {
+            Log.i(TAG, "sanitize 改写: [$before] -> [$out]")
+        }
         return out
     }
 
@@ -288,7 +300,13 @@ object MathTextRenderer {
             .build()
         FittedDrawable(inner, maxWidthPx)
     } catch (t: Throwable) {
-        Log.w(TAG, "公式渲染失败，保留源码: ${latex.take(60)}", t)
+        if (verboseLogging) {
+            Log.w(
+                TAG,
+                "公式渲染失败: 原因=${t.javaClass.simpleName}: ${t.message}\n" +
+                    "  原始=[$latex]\n  改写后=[${sanitize(latex)}]",
+            )
+        }
         null
     }
 

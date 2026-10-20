@@ -105,6 +105,10 @@ MIT（`LICENSE`，Copyright (c) 2026 guiyuqi）。第三方依赖各自许可，
   UNC 路径 `\\wsl.localhost\Ubuntu\home\fragranstea\dsh-workspace\ScreenSolve\app\build\outputs\apk\...`，
   **不要再把 apk 复制到 `/mnt/c/Users/FragransTea/`**（已经清理过一次）。
 - 签名证书备份在 WSL：`~/screensolve-signing-backup/`（jks + keystore.properties + 说明）。
+- **调试包可以复用发布证书**：`./gradlew assembleLiteDebug -PreleaseSignedDebug` →
+  能覆盖安装到已装 release 的手机上（数据不丢），且仍是 debuggable、调试日志照开。
+  但**发布包只能来自 `assemble*Release`**，绝不能拿这个 debug 包对外发布（带 DEBUGGABLE 标志）。
+  细节与发版前校验命令见 `TOOLCHAIN.md`「调试包与发布包的签名」。
 - 详见 `TOOLCHAIN.md` 末节。
 
 ## 1. 项目是什么

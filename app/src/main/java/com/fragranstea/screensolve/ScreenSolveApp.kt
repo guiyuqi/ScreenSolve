@@ -3,6 +3,7 @@ package com.fragranstea.screensolve
 import android.app.Application
 import androidx.appcompat.app.AppCompatDelegate
 import com.fragranstea.screensolve.data.SettingsStore
+import com.fragranstea.screensolve.util.MathTextRenderer
 
 /**
  * 应用入口：把"白天 / 夜间 / 跟随系统"落到 AppCompat 的全局夜间模式上。
@@ -15,6 +16,9 @@ class ScreenSolveApp : Application() {
     override fun onCreate() {
         super.onCreate()
         applyTheme(SettingsStore(this).themeMode)
+
+        // 渲染层的调试日志只在 debug 构建打开（正式包不刷日志、也不泄露题目内容）
+        MathTextRenderer.verboseLogging = resources.getBoolean(R.bool.is_debug_build)
     }
 
     companion object {

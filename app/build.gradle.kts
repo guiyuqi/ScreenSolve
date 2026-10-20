@@ -66,6 +66,15 @@ android {
     }
 
     buildTypes {
+        debug {
+            // 真机调试用：./gradlew assembleLiteDebug -PreleaseSignedDebug
+            // 让 debug 包用**发布证书**签名，于是能覆盖安装到已装 release 的手机上（API Key / 历史不丢），
+            // 同时 is_debug_build 仍为 true，渲染层调试日志照开。
+            if (project.hasProperty("releaseSignedDebug") && keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+
         release {
             // 有 keystore.properties 就签，没有就留空（不挡住编译）
             if (keystorePropertiesFile.exists()) {

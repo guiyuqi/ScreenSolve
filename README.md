@@ -68,6 +68,9 @@ export ANDROID_HOME=/opt/android-sdk
 
 - release 签名配置从仓库根目录的 `keystore.properties` 读（配合 `keystore/screensolve-release.jks`），
   两者都**不在仓库里**。缺少它们时 release 包不签名，但仍能编译。
+- 真机调试想**保留已装 release 的数据**（API Key / 历史）时，用发布证书签名的 debug 包：
+  `./gradlew assembleLiteDebug -PreleaseSignedDebug`（仍是 debuggable，调试日志照开）。
+  **发布包只能用 `assemble*Release`，不要拿这个 debug 包发版。**
 - 想在不卸载已装 debug 包的前提下验证混淆后的 release 包：
   `./gradlew assembleFullRelease -PsmokeTest`，包名会变成 `...screensolve.smoke`，可与 debug 版共存。
 

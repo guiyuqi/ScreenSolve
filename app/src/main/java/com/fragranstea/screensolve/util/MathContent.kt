@@ -163,6 +163,12 @@ object MathContent {
             if (width <= limit) continue
 
             found = true
+            if (MathTextRenderer.verboseLogging) {
+                android.util.Log.i(
+                    "MathContent",
+                    "长公式改横滑: 宽=$width > 阈值=${limit.toInt()} latex=[${m.latex.take(80)}]",
+                )
+            }
             if (m.start > cursor) out.add(Chunk.Text(raw.substring(cursor, m.start)))
             out.add(Chunk.Formula(m.latex))
             cursor = m.end

@@ -374,3 +374,41 @@ APK='\\wsl.localhost\Ubuntu\home\fragranstea\dsh-workspace\ScreenSolve\app\build
 - 构建产物统一放在 `app/build/outputs/apk/<flavor>/<buildType>/`，**不要再复制到 `/mnt/c/Users/...`**
 - 签名证书备份在 WSL：`~/screensolve-signing-backup/`（jks + 口令 + 说明）
   —— 注意 WSL 目录**不算异地备份**，需要自己再存一份到网盘/U 盘
+
+## 调试包与发布包的签名（重要，发版前必读）
+
+**默认情况**：`assemble*Debug` 用 Android 默认 debug 证书，`assemble*Release` 用 `keystore/` 里的发布证书，
+两者签名不同 → **debug 与 release 不能互相覆盖安装**（会提示 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`，
+卸载重装会清掉 API Key 与历史）。
+
+**调试专用开关**：`-PreleaseSignedDebug`
+
+```bash
+./gradlew assembleLiteDebug -PreleaseSignedDebug
+```
+
+- 效果：**debug 包改用发布证书签名**（`signingConfig = release`），于是能直接覆盖安装到已装 release 的手机上，
+  **数据不丢**；同时它仍是 debuggable、`R.bool.is_debug_build = true`，调试日志照常输出。
+- 用途：真机调试渲染/交互时，避免"装 debug 就得清空用户数据"。
+- 前提：仓库根部要有 `keystore.properties` + `keystore/screensolve-release.jks`（两者都不进 git）。
+
+**⚠️ 发版纪律**
+1. 发布包**只能**来自 `assembleLiteRelease` / `assembleFullRelease`。不要拿 `-PreleaseSignedDebug` 产出的
+   debug 包当发布包——它带 `DEBUGGABLE` 标志，线上会被拒或带来安全问题。
+2. 因为 debug 包**可能**和 release 同签名（只在加了该参数时），发版前务必确认：
+   ```bash
+   unzip -p app/build/outputs/apk/lite/release/app-lite-release.apk META-INF/*.RSA >/dev/null 2>&1 && echo release-ok
+   apksigner verify --print-certs app/build/outputs/apk/lite/release/app-lite-release.apk
+   ```
+   并用 `apkanalyzer manifest print ...` 确认 **没有** `android:debuggable="true"`。
+3. 同理，**不要**用 release 证书去签一个"给测试同事的测试包"再对外发布。
+
+## 调试日志（只在 debug 构建输出）
+
+- `MathTextRenderer.verboseLogging`：由 `ScreenSolveApp` 在启动时按 `R.bool.is_debug_build` 打开。
+- 打开时会输出：
+  - `sanitize 改写: [原始 latex] -> [改写后]`（模型用了 jlatexmath 不支持的命令时）
+  - `公式渲染失败: 原因=... 原始=[...] 改写后=[...]`
+  - `降级为文本: [latex]`
+  - `MathContent: 长公式改横滑: 宽=1908 > 阈值=636 latex=[...]`
+- **正式包一律不输出**（避免刷屏、也避免把题目内容写进日志）。

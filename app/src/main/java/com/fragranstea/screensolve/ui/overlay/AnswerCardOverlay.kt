@@ -25,6 +25,7 @@ import com.fragranstea.screensolve.R
 import com.fragranstea.screensolve.recognize.Answer
 import com.fragranstea.screensolve.recognize.SolveError
 import com.fragranstea.screensolve.util.DisplayUtils
+import com.fragranstea.screensolve.util.MathContent
 import com.fragranstea.screensolve.util.MathTextRenderer
 import io.noties.markwon.Markwon
 
@@ -48,9 +49,9 @@ class AnswerCardOverlay(
     private var root: View? = null
     private var headerView: TextView? = null
     private var questionLabel: TextView? = null
-    private var questionView: TextView? = null
+    private var questionBox: LinearLayout? = null
     private var answerLabel: TextView? = null
-    private var answerView: TextView? = null
+    private var answerBox: LinearLayout? = null
     private var stepsLabel: TextView? = null
     private var stepsContainer: LinearLayout? = null
     private var footnoteView: TextView? = null
@@ -123,7 +124,7 @@ class AnswerCardOverlay(
             else -> context.getString(R.string.answer_header_plain)
         }
 
-        render(questionView, answer.question)
+        renderBox(questionBox, answer.question, textSizeSp = 13.5f, color = QUESTION_COLOR)
         showSections(
             question = !asReply && answer.question.isNotBlank(),
             answer = true,
@@ -134,26 +135,32 @@ class AnswerCardOverlay(
         answerLabel?.text = context.getString(
             if (asReply) R.string.answer_label_reply else R.string.answer_label_answer,
         )
-        answerView?.textSize = if (asReply) 17f else 22f
-        // 答案用粗体强调；追问回复是整段解释，粗体会变成一堵墙。
-        // 注意：setTypeface(当前粗体实例, NORMAL) 在部分 ROM 上不会真的变细，
-        // 直接换成 DEFAULT / DEFAULT_BOLD 才可靠。
-        answerView?.typeface = if (asReply) Typeface.DEFAULT else Typeface.DEFAULT_BOLD
-        render(answerView, answer.answer, mathScale = if (asReply) 0.92f else 0.85f)
+        // 答案区：首轮用大字号加粗强调；追问回复是整段解释，正常字重、略小
+        renderBox(
+            answerBox,
+            answer.answer,
+            textSizeSp = if (asReply) 17f else 22f,
+            color = ANSWER_COLOR,
+            bold = !asReply,
+            lineSpacingDp = 4f,
+        )
 
         stepsContainer?.removeAllViews()
         answer.steps.forEachIndexed { index, step ->
-            val stepView = TextView(context).apply {
-                textSize = 14.5f
-                setTextColor(BODY_COLOR)
-                setLineSpacing(6f * DisplayUtils.density(context), 1f)
-                setPadding(0, DisplayUtils.dp(context, 6), 0, 0)
-            }
+            val stepBox = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
             stepsContainer?.addView(
-                stepView,
-                LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT),
+                stepBox,
+                LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                    topMargin = DisplayUtils.dp(context, 6)
+                },
             )
-            render(stepView, context.getString(R.string.answer_step_item, index + 1, step))
+            renderBox(
+                stepBox,
+                context.getString(R.string.answer_step_item, index + 1, step),
+                textSizeSp = 14.5f,
+                color = BODY_COLOR,
+                lineSpacingDp = 6f,
+            )
         }
 
         val footnote = buildFootnote(answer)
@@ -205,11 +212,54 @@ class AnswerCardOverlay(
 
     private fun showSections(question: Boolean, answer: Boolean, steps: Boolean) {
         questionLabel?.visibility = if (question) View.VISIBLE else View.GONE
-        questionView?.visibility = if (question) View.VISIBLE else View.GONE
+        questionBox?.visibility = if (question) View.VISIBLE else View.GONE
         answerLabel?.visibility = if (answer) View.VISIBLE else View.GONE
-        answerView?.visibility = if (answer) View.VISIBLE else View.GONE
+        answerBox?.visibility = if (answer) View.VISIBLE else View.GONE
         stepsLabel?.visibility = if (steps) View.VISIBLE else View.GONE
         stepsContainer?.visibility = if (steps) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * 渲染到"容器"：普通文本用 TextView，**超宽公式单独成块并支持横向滑动**。
+     *
+     * 为什么不再用一个 TextView 装全部内容：TextView 里放不进可滚动的子视图，
+     * 而一屏装不下的长公式若靠缩小呈现，字会小到看不清（用户实测反馈）。
+     */
+    private fun renderBox(
+        box: LinearLayout?,
+        markdown: String,
+        textSizeSp: Float,
+        color: Int,
+        bold: Boolean = false,
+        lineSpacingDp: Float = 4f,
+        mathScale: Float = 1f,
+    ) {
+        if (box == null) return
+        val raw = markdown.trim()
+        if (raw.isEmpty()) {
+            box.removeAllViews()
+            return
+        }
+        val density = DisplayUtils.density(context)
+        val contentWidth = (box.width - box.paddingLeft - box.paddingRight).takeIf { it > 0 }
+            ?: (DisplayUtils.screenBounds(context).width() * 0.78f).toInt()
+        MathContent.populate(
+            container = box,
+            context = context,
+            markwon = markwon,
+            raw = raw,
+            textSizePx = textSizeSp * density * mathScale,
+            color = color,
+            maxWidthPx = contentWidth,
+            lineSpacingDp = lineSpacingDp,
+            style = { tv ->
+                tv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, textSizeSp)
+                tv.setTextColor(color)
+                tv.typeface = if (bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            },
+        )
+        // populate 内部按 textSizePx（含 mathScale）画公式，但文本块又被 style 重置成 textSizeSp，
+        // 两者不一致时以 style 为准不会崩，只是公式略大/略小；这里不做额外处理。
     }
 
     /**
@@ -323,18 +373,13 @@ class AnswerCardOverlay(
         }
 
         questionLabel = sectionLabel(R.string.answer_label_question)
-        questionView = TextView(context).apply {
-            textSize = 13.5f
-            setTextColor(QUESTION_COLOR)
-            setLineSpacing(5f * DisplayUtils.density(context), 1f)
+        questionBox = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
         }
 
         answerLabel = sectionLabel(R.string.answer_label_answer)
-        answerView = TextView(context).apply {
-            textSize = 22f
-            setTextColor(ANSWER_COLOR)
-            setTypeface(typeface, Typeface.BOLD)
-            setLineSpacing(4f * DisplayUtils.density(context), 1f)
+        answerBox = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
         }
 
         stepsLabel = sectionLabel(R.string.answer_label_steps)
@@ -350,9 +395,9 @@ class AnswerCardOverlay(
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             addView(questionLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-            addView(questionView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(questionBox, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(answerLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-            addView(answerView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(answerBox, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(stepsLabel, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(stepsContainer, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(footnoteView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))

@@ -30,6 +30,7 @@ import com.fragranstea.screensolve.recognize.SolveOutcome
 import com.fragranstea.screensolve.recognize.SolveSession
 import com.fragranstea.screensolve.util.DisplayUtils
 import com.fragranstea.screensolve.util.ImagePreview
+import com.fragranstea.screensolve.util.MathContent
 import com.fragranstea.screensolve.util.MathTextRenderer
 import io.noties.markwon.Markwon
 
@@ -224,29 +225,8 @@ class ConversationActivity : AppCompatActivity() {
         if (text.isBlank()) return
         val maxBubbleWidth = (DisplayUtils.screenBounds(this).width() * 0.78f).toInt()
 
-        val body = TextView(this).apply {
-            textSize = 15f
-            setTextColor(0xFF222222.toInt())
-            setLineSpacing(5f * density, 1f)
-            setPadding(dp(12), dp(9), dp(12), dp(9))
-            maxWidth = maxBubbleWidth - dp(26)   // 长文本自动换行，短文本保持气泡收缩
-            setTextColor(colorTextPrimary())
-            isClickable = true
-            isLongClickable = true
-            setOnLongClickListener {
-                copyText(text)
-                true
-            }
-        }
-        MathTextRenderer.render(
-            markwon,
-            body,
-            text,
-            body.textSize,
-            body.currentTextColor,
-            // 必须传"内容宽度"：maxWidth 是含内边距的外框，公式按它排会顶出气泡右边
-            maxBubbleWidth - dp(26) - dp(24),
-        )
+        // 气泡内部也换成容器：长公式单独成块可横向滑动
+        val bodyBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         val bubble = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -264,7 +244,22 @@ class ConversationActivity : AppCompatActivity() {
             }
             setPadding(dp(12), dp(9), dp(12), dp(9))
         }
-        bubble.addView(body, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        MathContent.populate(
+            container = bodyBox,
+            context = this,
+            markwon = markwon,
+            raw = text,
+            textSizePx = 15f * density,
+            color = colorTextPrimary(),
+            maxWidthPx = maxBubbleWidth - dp(26) - dp(24),
+            lineSpacingDp = 5f,
+            fillWidth = false,
+            style = { tv ->
+                tv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15f)
+                tv.setTextColor(colorTextPrimary())
+            },
+        )
+        bubble.addView(bodyBox, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
 
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -298,21 +293,34 @@ class ConversationActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT),
             )
         }
-        val body = TextView(this).apply {
-            textSize = if (bold) 19f else 15f
-            setTextColor(if (muted) ContextCompat.getColor(this@ConversationActivity, R.color.text_muted) else colorTextPrimary())
-            typeface = if (bold) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
-            setLineSpacing(5f * density, 1f)
+
+        // 用容器而不是单个 TextView：超宽公式要单独成块并支持横向滑动
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        content.addView(box, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+
+        val textSizeSp = if (bold) 22f else 15f
+        val color = if (muted) {
+            ContextCompat.getColor(this, R.color.text_muted)
+        } else {
+            colorTextPrimary()
         }
-        MathTextRenderer.render(
-            markwon,
-            body,
-            text,
-            body.textSize,
-            body.currentTextColor,
-            (DisplayUtils.screenBounds(this).width() - dp(40) - dp(28)),
+        val maxWidth = (DisplayUtils.screenBounds(this).width() - dp(40) - dp(28))
+        MathContent.populate(
+            container = box,
+            context = this,
+            markwon = markwon,
+            raw = text,
+            textSizePx = textSizeSp * density,
+            color = color,
+            maxWidthPx = maxWidth,
+            lineSpacingDp = 5f,
+            fillWidth = true,
+            style = { tv ->
+                tv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, textSizeSp)
+                tv.setTextColor(color)
+                tv.typeface = if (bold) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+            },
         )
-        content.addView(body, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
     }
 
     private fun divider(): View = View(this).apply {

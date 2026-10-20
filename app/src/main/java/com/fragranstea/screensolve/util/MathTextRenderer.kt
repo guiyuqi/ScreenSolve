@@ -34,6 +34,43 @@ object MathTextRenderer {
 
     private const val TAG = "MathTextRenderer"
 
+    /** 一段数学表达式在原文中的位置与内容，供上层做"长公式单独成块"的切分。 */
+    data class MathMatch(
+        val start: Int,
+        val end: Int,
+        val latex: String,
+        val isBlockDelimiter: Boolean,
+    )
+
+    /** 找出原文里所有数学片段（位置 + latex）。 */
+    fun mathMatches(raw: String): List<MathMatch> = MATH.findAll(raw).map { m ->
+        val latex = (1..4).map { m.groupValues[it] }.firstOrNull { it.isNotEmpty() }.orEmpty().trim()
+        MathMatch(
+            start = m.range.first,
+            end = m.range.last + 1,
+            latex = latex,
+            isBlockDelimiter = m.value.startsWith("$$") || m.value.startsWith("\\["),
+        )
+    }.toList()
+
+    /**
+     * 按**自然尺寸**画一个公式（不缩放）。
+     * 长公式交给横向可滚动容器显示，就不该再为"塞进一屏"把字缩小。
+     */
+    fun drawableNaturalSize(latex: String, textSizePx: Float, color: Int): Drawable? =
+        buildMath(latex, textSizePx, color, 0)
+
+    /** 把公式 Drawable 画成位图（供 ImageView 在横滑容器里显示）。 */
+    fun toBitmap(drawable: Drawable): android.graphics.Bitmap {
+        val w = drawable.intrinsicWidth.coerceAtLeast(1)
+        val h = drawable.intrinsicHeight.coerceAtLeast(1)
+        val bitmap = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        drawable.setBounds(0, 0, w, h)
+        drawable.draw(canvas)
+        return bitmap
+    }
+
     /**
      * 行内公式宽到整行的这个比例以上，就改按块级（独占一段）排版。
      *

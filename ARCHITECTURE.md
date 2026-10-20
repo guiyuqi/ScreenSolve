@@ -375,6 +375,19 @@ Content-Type: application/json
   - `DOT`：**窗口 28dp、只画 10dp 的白点** —— 10dp 在 480dpi 上只有 30px，
     窗口若也做 30px 手指几乎点不中（Android 建议 ≥48dp 可点区域），所以透明区域留着响应触摸。
 - 切换样式后 `OverlayService.restyle()` 重建悬浮窗（`LayoutParams` 里宽高写死，只能删了重加），位置沿用。
+### 4.12 长公式的横向滚动（1.1.3）
+
+- **问题**：一屏装不下的公式，早期做法是"等比缩小到能塞进宽度"（`FittedDrawable` 按 maxWidth 缩）。
+  10 项以上的链式公式会被缩到字号很小，实际上读不了。
+- **方案**：TextView 里塞不进可滚动的子视图，所以把内容拆成「文本块 + 公式块」：
+  - 公式自然宽度 ≤ 可用宽度 × 0.92 → 仍内联（交给 `MathTextRenderer.render`，排版不变）
+  - 超过 → 单独成块，`HorizontalScrollView` + `ImageView`（`FIT_START`，保持原始字号）
+  - 实现：`util/MathContent.kt`（`populate()` 铺进 LinearLayout），
+    `MathTextRenderer` 提供 `mathMatches()` / `drawableNaturalSize()` / `toBitmap()`
+- **接入点**：`AnswerCardOverlay` 的题目/答案/步骤（改成容器）、`ConversationActivity` 的段落与气泡。
+  气泡用 `fillWidth = false` + `TextView.maxWidth` 保持"短文本收缩、长文本换行"的原有观感。
+- **代价**：每个公式都要先按目标字号画一次来量宽度（公式数量少，可接受）；段落被公式切开后，
+  跨段的 markdown 结构（如有序列表）不再连续。
 ## 5. 完整时序（成功路径 + 关键分支）
 
 ```

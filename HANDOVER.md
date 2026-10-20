@@ -1,11 +1,28 @@
 # 交接文档（HANDOVER）
 
 > 面向"下一个接手的人/会话"。读完这份就能无缝继续，不必回翻聊天记录。
-> 最后更新：v1.1.2（悬浮球双样式 / 选区悬浮窗 / 拍照模式 / 外观三档 / 图片旋转 / 相机补光）。
+> 最后更新：v1.1.3（悬浮球双样式 / 选区悬浮窗 / 拍照模式 / 外观三档 / 图片旋转 / 相机补光）。
 
 ---
 
-## 0. 发布状态（1.1.2）
+## 0. 发布状态（1.1.3）
+
+**1.1.3：长公式改横向滑动（代码完成、四端产物已构建；设备 USB 掉线，未真机回归）**
+
+- 需求来源：用户反馈"长公式压缩在一屏里字符太小"。做法对齐 DeepSeek App——保持字号、公式自己横滑。
+- 新增 `util/MathContent.kt`：把内容拆成「文本块 + 公式块」铺进 `LinearLayout`；
+  公式自然宽度 > 可用宽度 × 0.92 时单独成块，用 `HorizontalScrollView + ImageView(FIT_START)` 显示，不缩放。
+- `MathTextRenderer` 新增 `mathMatches()`（按位置取公式）、`drawableNaturalSize()`（不缩放出图）、`toBitmap()`。
+- 接入点（**两处都改了**）：`AnswerCardOverlay`（题目/答案/步骤改成容器 + `renderBox`）、
+  `ConversationActivity`（`addSection` 段落与 `addBubble` 气泡；气泡用 `fillWidth=false` 保持收缩观感）。
+- **待真机确认**：
+  1. 悬浮卡片里长公式能左右滑动、短公式排版不变；
+  2. 历史会话里同上；气泡宽度对短文本仍然收缩；
+  3. 公式块高度正常、滚动条不影响阅读；文字与公式字号协调。
+- 已知取舍：段落被长公式切开后，跨段的 markdown 结构（有序列表）不再连续；每个公式会先按目标字号
+  画一次来量宽度（公式少，开销可接受）。
+
+## 0.1 发布状态（1.1.2）
 
 **1.1.2 修复 6 项（已真机回归，HONOR DIO-AN00 / Android 12）**
 
@@ -21,7 +38,7 @@
 | 6 | 相机手电 | ✅ | 点 💡 后 `dumpsys media.camera` 出现 `[TORCH ]`、画面变亮；退出取景页 `torch mode changed: false` |
 
 顺带确认：拍照模式的选区**等比显示（上下黑边、不拉伸）**；装机走 UNC 路径可行（未再拷贝到 C 盘）。
-遗留观察（不算 bug）：极长的公式会被等比缩小到气泡宽度内，12 项以上的式子字会很小——如需可读性，可改成"超长公式允许横向滚动"。
+~~遗留观察：极长公式被等比缩小~~ → 1.1.3 已改为横向滚动（保持字号）。
 
 1. **历史会话里公式被截断**：`ConversationActivity` 传给 `MathTextRenderer` 的是气泡**外框**宽度，
    比内容宽度大 → 公式画出气泡右边。改为传内容宽度（外框 − 内边距），`MathTextRenderer.BLOCK_RATIO` 0.40 → 0.33。
@@ -155,6 +172,7 @@ app/src/main/java/com/fragranstea/screensolve/
 └─ util/
    ├─ ImagePreview.kt         全屏看题目图（黑底 + 缩放 + 旋转 90° + 关闭）
    ├─ ZoomImageView.kt        双指/双击缩放、放大后拖动、边界回弹（不引 photoview）
+   ├─ MathContent.kt          把内容切成「文本块 + 长公式块」铺进 LinearLayout（长公式横滑，见 §4.12）
    ├─ MathTextRenderer.kt     **公式渲染的核心**：整段 Markwon 管 markdown，公式换 U+FFFC 占位 → jlatexmath 出图 →
    │                          `BaselineMathSpan`（自绘 ReplacementSpan，撑行高避免裁字）+ 超宽等比缩放（详见 §9 踩坑）
    └─ DisplayUtils.kt         屏幕尺寸（用 maximumWindowMetrics，保证等于整屏）

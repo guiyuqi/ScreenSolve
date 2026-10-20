@@ -18,7 +18,7 @@
 
 | 文件 | 体积 |
 |---|---|
-| `ScreenSolve-lite-release.apk` | 2.19 MB（推荐） |
-| `ScreenSolve-full-release.apk` | 15.92 MB |
+| `ScreenSolve-lite-release.apk` | 2.30 MB（推荐） |
+| `ScreenSolve-full-release.apk` | 16.69 MB |
 
 与 1.1.x 同签名，可直接覆盖升级，设置与历史保留。
